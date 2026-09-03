@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>WorkTime | Employee Attendance</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="dark">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+
+        <!-- BRAND -->
+        <div class="brand">
+            <div class="brand-mark">W</div>
+
+            <div class="brand-text">
+                <h1>WorkTime</h1>
+                <span>Employee Attendance</span>
+            </div>
+        </div>
+
+        <!-- NAVIGATION -->
+        <nav class="navigation">
+
+            <button class="nav-item active" data-page="dashboard">
+                <svg class="nav-icon" viewBox="0 0 24 24">
+                    <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8v-10h-8v10zm0-18v6h8V3h-8z"/>
+                </svg>
+                <span>Dashboard</span>
+            </button>
+
+            <button class="nav-item" data-page="attendance">
+                <svg class="nav-icon" viewBox="0 0 24 24">
+                    <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/>
+                </svg>
+                <span>Attendance</span>
+            </button>
+
+            <button class="nav-item" data-page="employees">
+                <svg class="nav-icon" viewBox="0 0 24 24">
+                    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 2.03 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                </svg>
+                <span>Employees</span>
+            </button>
+
+            <button class="nav-item" data-page="reports">
+                <svg class="nav-icon" viewBox="0 0 24 24">
+                    <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 8h14v-2H7v2zm0-4h14v-2H7v2zm0-6v2h14V7H7z"/>
+                </svg>
+                <span>Reports</span>
+            </button>
+
+        </nav>
+
+        <!-- SIDEBAR BOTTOM -->
+        <div class="sidebar-bottom">
+
+            <button class="nav-item" data-page="settings">
+                <svg class="nav-icon" viewBox="0 0 24 24">
+                    <path d="M19.14 12.94c.04-.31.07-.63.07-.94s-.03-.63-.07-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96c-.5-.38-1.04-.71-1.64-.98l-.36-2.54A.5.5 0 0 0 13.5 2h-3a.5.5 0 0 0-.5.42l-.36 2.54c-.6.27-1.14.6-1.64.98l-2.39-.96a.5.5 0 0 0-.6.22L2.69 8.28a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.07.63-.07.94s.03.63.07.94L2.81 13.78a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.44.33.68.22l2.39-.96c.5.38 1.04.71 1.64.98l.36 2.54c.05.26.27.42.5.42h3c.28 0 .5-.24.5-.5l.36-2.54c.6-.27 1.14-.6 1.64-.98l2.39.96c.24.1.54 0 .68-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5S10.07 8.5 12 8.5s3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
+                </svg>
+                <span>Settings</span>
+            </button>
+
+            <div class="user-mini">
+
+                <div class="avatar">JN</div>
+
+                <div class="user-info">
+                    <strong>Jose Navoa</strong>
+                    <span>Administrator</span>
+                </div>
+
+                <button class="more-button" aria-label="More options">
+                    •••
+                </button>
+
+            </div>
+
+        </div>
+
+    </aside>
+
+
+    <!-- MAIN -->
+    <main class="main">
+
+        <!-- TOP BAR -->
+        <header class="topbar">
+
+            <div class="breadcrumb">
+                <span class="breadcrumb-label">Workspace /</span>
+                <strong id="pageTitle">Dashboard</strong>
+            </div>
+
+            <div class="topbar-right">
+
+                <div class="system-status">
+                    <span class="status-dot pulse"></span>
+                    System Online
+                </div>
+
+                <button class="icon-button" id="themeButton" aria-label="Toggle theme">
+                    🌓
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <!-- DASHBOARD -->
+        <section class="page active" id="dashboard">
+
+            <!-- WELCOME -->
+            <div class="welcome">
+
+                <div class="hero-text">
+                    <p class="eyebrow">EMPLOYEE ATTENDANCE</p>
+
+                    <h2 class="hero-title">
+                        Good morning, Jose.
+                    </h2>
+
+                    <p class="subtitle">
+                        Manage your attendance and track today's working hours.
+                    </p>
+                </div>
+
+                <div class="current-date" id="currentDate"></div>
+
+            </div>
+
+
+            <!-- CLOCK + TODAY -->
+            <div class="clock-grid">
+
+                <!-- CLOCK CARD -->
+                <article class="card clock-card">
+
+                    <header class="clock-header">
+
+                        <div>
+                            <span class="card-label">CURRENT TIME</span>
+
+                            <h3 id="clock" class="clock-time">
+                                00:00:00
+                            </h3>
+                        </div>
+
+                        <div class="live-indicator">
+                            <span class="live-dot"></span>
+                            LIVE
+                        </div>
+
+                    </header>
+
+
+                    <div class="clock-date" id="clockDate">
+                        Loading...
+                    </div>
+
+
+                    <div class="clock-status">
+
+                        <div class="status-icon" id="statusIcon">
+                            ✓
+                        </div>
+
+                        <div>
+                            <span class="small-label">STATUS</span>
+
+                            <strong id="attendanceStatus">
+                                Not Clocked In
+                            </strong>
+                        </div>
+
+                    </div>
+
+
+                    <button class="clock-button primary" id="clockButton">
+                        CLOCK IN
+                    </button>
+
+                </article>
+
+
+                <!-- TODAY CARD -->
+                <article class="card today-card">
+
+                    <header class="section-title">
+
+                        <div class="today-header">
+
+                            <span class="card-label">TODAY</span>
+
+                            <h3>Attendance</h3>
+
+                        </div>
+
+                        <span class="today-badge" id="todayBadge">
+                            NOT STARTED
+                        </span>
+
+                    </header>
+
+
+                    <div class="attendance-detail">
+
+                        <div class="detail-row">
+                            <span>Clock In</span>
+                            <strong id="clockInTime">—</strong>
+                        </div>
+
+                        <div class="detail-row">
+                            <span>Clock Out</span>
+                            <strong id="clockOutTime">—</strong>
+                        </div>
+
+                        <div class="detail-row">
+                            <span>Working Time</span>
+                            <strong id="workingTime">0h 00m</strong>
+                        </div>
+
+                    </div>
+
+
+                    <div class="progress-container">
+
+                        <div class="progress-label">
+                            <span>Daily target</span>
+                            <strong id="targetHoursLabel">8 hours</strong>
+                        </div>
+
+                        <div class="progress-bar">
+                            <div id="progress"></div>
+                        </div>
+
+                    </div>
+
+                </article>
+
+            </div>
+
+
+            <!-- STATISTICS -->
+            <div class="section-heading">
+
+                <div class="heading-group">
+
+                    <span class="eyebrow">OVERVIEW</span>
+
+                    <h3>Attendance Summary</h3>
+
+                </div>
+
+                <span class="period">This Month</span>
+
+            </div>
+
+
+            <div class="stats-grid">
+
+                <article class="stat-card">
+                    <span class="stat-label">PRESENT</span>
+                    <strong id="presentCount">0</strong>
+                    <span class="stat-description">Days attended</span>
+                </article>
+
+                <article class="stat-card">
+                    <span class="stat-label">LATE</span>
+                    <strong id="lateCount">0</strong>
+                    <span class="stat-description">Late arrivals</span>
+                </article>
+
+                <article class="stat-card">
+                    <span class="stat-label">WORKING HOURS</span>
+                    <strong id="hoursCount">0h</strong>
+                    <span class="stat-description">Total this month</span>
+                </article>
+
+                <article class="stat-card">
+                    <span class="stat-label">ATTENDANCE</span>
+                    <strong id="attendancePercentage">100%</strong>
+                    <span class="stat-description">Overall attendance</span>
+                </article>
+
+            </div>
+
+
+            <!-- RECENT ATTENDANCE -->
+            <div class="section-heading recent-heading">
+
+                <div class="heading-group">
+
+                    <span class="eyebrow">HISTORY</span>
+
+                    <h3>Recent Attendance</h3>
+
+                </div>
+
+                <button class="text-button" data-page="attendance">
+                    View all →
+                </button>
+
+            </div>
+
+
+            <div class="table-container">
+
+                <table>
+
+                    <thead>
+                        <tr>
+                            <th>DATE</th>
+                            <th>DAY</th>
+                            <th>CLOCK IN</th>
+                            <th>CLOCK OUT</th>
+                            <th>DURATION</th>
+                            <th>STATUS</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="recentAttendance"></tbody>
+
+                </table>
+
+            </div>
+
+        </section>
+
+
+        <!-- ATTENDANCE PAGE -->
+        <section class="page" id="attendance">
+
+            <header class="page-header">
+
+                <div class="header-left">
+
+                    <p class="eyebrow">ATTENDANCE</p>
+
+                    <h2>Attendance History</h2>
+
+                    <p class="subtitle">
+                        Review your previous attendance records.
+                    </p>
+
+                </div>
+
+                <button class="primary-button" id="exportButton">
+                    Export CSV
+                </button>
+
+            </header>
+
+
+            <div class="filter-bar">
+
+                <input
+                    type="month"
+                    id="monthFilter"
+                    aria-label="Month filter"
+                >
+
+                <select
+                    id="statusFilter"
+                    aria-label="Status filter"
+                >
+                    <option value="all">All Status</option>
+                    <option value="present">Present</option>
+                    <option value="late">Late</option>
+                </select>
+
+                <button class="secondary-button" id="clearFilter">
+                    Clear Filters
+                </button>
+
+            </div>
+
+
+            <div class="table-container">
+
+                <table>
+
+                    <thead>
+                        <tr>
+                            <th>DATE</th>
+                            <th>DAY</th>
+                            <th>CLOCK IN</th>
+                            <th>CLOCK OUT</th>
+                            <th>DURATION</th>
+                            <th>STATUS</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="attendanceTable"></tbody>
+
+                </table>
+
+            </div>
+
+        </section>
+
+
+        <!-- EMPLOYEES PAGE -->
+        <section class="page" id="employees">
+
+            <header class="page-header">
+
+                <div class="header-left">
+
+                    <p class="eyebrow">TEAM</p>
+
+                    <h2>Employees</h2>
+
+                    <p class="subtitle">
+                        Manage employees in the organization.
+                    </p>
+
+                </div>
+
+                <button class="primary-button" id="addEmployeeButton">
+                    + Add Employee
+                </button>
+
+            </header>
+
+
+            <div class="employee-grid" id="employeeGrid"></div>
+
+        </section>
+
+
+        <!-- REPORTS PAGE -->
+        <section class="page" id="reports">
+
+            <header class="page-header">
+
+                <div class="header-left">
+
+                    <p class="eyebrow">ANALYTICS</p>
+
+                    <h2>Attendance Reports</h2>
+
+                    <p class="subtitle">
+                        Overview of attendance performance.
+                    </p>
+
+                </div>
+
+            </header>
+
+
+            <div class="report-grid">
+
+                <article class="report-card large">
+
+                    <span class="card-label">
+                        MONTHLY ATTENDANCE
+                    </span>
+
+                    <div class="fake-chart">
+
+                        <div class="chart-bar" style="height:55%">
+                            <span>W1</span>
+                        </div>
+
+                        <div class="chart-bar" style="height:75%">
+                            <span>W2</span>
+                        </div>
+
+                        <div class="chart-bar" style="height:65%">
+                            <span>W3</span>
+                        </div>
+
+                        <div class="chart-bar" style="height:90%">
+                            <span>W4</span>
+                        </div>
+
+                    </div>
+
+                </article>
+
+
+                <article class="report-card">
+
+                    <span class="card-label">
+                        ATTENDANCE RATE
+                    </span>
+
+                    <strong class="big-number">
+                        94.2%
+                    </strong>
+
+                    <span class="positive">
+                        +2.4% from last month
+                    </span>
+
+                </article>
+
+            </div>
+
+        </section>
+
+
+        <!-- SETTINGS PAGE -->
+        <section class="page" id="settings">
+
+            <header class="page-header">
+
+                <div class="header-left">
+
+                    <p class="eyebrow">SYSTEM</p>
+
+                    <h2>Settings</h2>
+
+                    <p class="subtitle">
+                        Configure your attendance system.
+                    </p>
+
+                </div>
+
+            </header>
+
+
+            <div class="settings-list">
+
+                <!-- DARK MODE -->
+                <div class="setting-item">
+
+                    <div class="setting-info">
+
+                        <strong>Dark Appearance</strong>
+
+                        <span>
+                            Use the dark interface.
+                        </span>
+
+                    </div>
+
+                    <label class="switch">
+
+                        <input
+                            type="checkbox"
+                            id="darkToggle"
+                            checked
+                        >
+
+                        <span class="slider"></span>
+
+                    </label>
+
+                </div>
+
+
+                <!-- AUTOMATIC CLOCK -->
+                <div class="setting-item">
+
+                    <div class="setting-info">
+
+                        <strong>Automatic Clock</strong>
+
+                        <span>
+                            Display the current time automatically.
+                        </span>
+
+                    </div>
+
+                    <label class="switch">
+
+                        <input
+                            type="checkbox"
+                            checked
+                            disabled
+                        >
+
+                        <span class="slider"></span>
+
+                    </label>
+
+                </div>
+
+
+                <!-- DAILY TARGET -->
+                <div class="setting-item">
+
+                    <div class="setting-info">
+
+                        <strong>Daily Working Target</strong>
+
+                        <span>
+                            Standard working hours per day.
+                        </span>
+
+                    </div>
+
+                    <input
+                        class="hours-input"
+                        type="number"
+                        id="dailyTarget"
+                        min="1"
+                        max="24"
+                        value="8"
+                    >
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- ADD EMPLOYEE MODAL -->
+    <div
+        class="modal"
+        id="employeeModal"
+        aria-hidden="true"
+        role="dialog"
+        aria-modal="true"
+    >
+
+        <div class="modal-content">
+
+            <button
+                class="modal-close"
+                id="closeModal"
+                aria-label="Close"
+            >
+                ×
+            </button>
+
+            <p class="eyebrow">EMPLOYEE</p>
+
+            <h2>Add Employee</h2>
+
+            <p class="subtitle">
+                Add a new employee to the system.
+            </p>
+
+
+            <form id="employeeForm">
+
+                <label for="employeeName">
+                    Full Name
+
+                    <input
+                        type="text"
+                        id="employeeName"
+                        placeholder="Enter employee name"
+                        required
+                    >
+
+                </label>
+
+
+                <label for="employeePosition">
+                    Position
+
+                    <input
+                        type="text"
+                        id="employeePosition"
+                        placeholder="e.g. Software Engineer"
+                        required
+                    >
+
+                </label>
+
+
+                <label for="employeeDepartment">
+                    Department
+
+                    <input
+                        type="text"
+                        id="employeeDepartment"
+                        placeholder="e.g. Technology"
+                        required
+                    >
+
+                </label>
+
+
+                <button
+                    type="submit"
+                    class="primary-button full"
+                >
+                    Add Employee
+                </button>
+
+            </form>
+
+        </div>
+
+    </div>
+
+
+    <!-- TOAST -->
+    <div
+        id="toastContainer"
+        class="toast-container"
+        aria-live="polite"
+    ></div>
+
+
+    <script src="script.js"></script>
+
+</body>
+</html>
