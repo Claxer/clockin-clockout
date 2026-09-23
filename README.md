@@ -14,10 +14,10 @@ The **Company Attendance System** provides a centralized way to manage employees
 
 The project currently contains two available versions:
 
-| Version | Technologies | Platform |
-|---|---|---|
-| Python Version | Python, CustomTkinter, SQLite | Desktop |
-| Web Version | HTML, CSS, JavaScript | Web Browser |
+| Version        | Technologies                  | Platform    |
+| -------------- | ----------------------------- | ----------- |
+| Python Version | Python, CustomTkinter, SQLite | Desktop     |
+| Web Version    | HTML, CSS, JavaScript         | Web Browser |
 
 Both versions are designed around the same core attendance workflow:
 
@@ -64,6 +64,10 @@ It provides access to the major sections of the application, including:
 * Quick attendance controls
 * Today's attendance table
 * Refresh functionality
+* Attendance summary
+* Total working hours
+* Average working hours
+* Employee attendance overview
 
 The dashboard is designed to give users a quick overview of the current attendance system.
 
@@ -99,6 +103,10 @@ Features include:
 * Full name management
 * Department management
 * Position management
+* Employee status management
+* Prevent duplicate employee IDs
+* Clear employee form
+* Refresh employee list
 
 Employee information is connected to attendance records so that every clock-in and clock-out can be associated with the correct employee.
 
@@ -120,7 +128,38 @@ Department: IT
 Position: IT Assistant
 ```
 
-The Python version provides a dedicated employee-management interface with a form for adding new employees and a table for viewing existing employees.
+---
+
+# Add Employee
+
+The system provides a dedicated form for adding new employees.
+
+The user can enter:
+
+```text
+Employee ID
+Full Name
+Department
+Position
+```
+
+After successfully adding an employee, the employee list is refreshed automatically.
+
+The form can also be cleared after a successful registration.
+
+The system checks for duplicate Employee IDs before creating a new employee.
+
+Example:
+
+```text
+Employee ID: EMP001
+Full Name: Jose Navoa
+Department: IT
+Position: IT Assistant
+
+[ Add Employee ]
+[ Clear ]
+```
 
 ---
 
@@ -139,6 +178,32 @@ The search system allows users to quickly locate an employee without manually lo
 
 Users can also use **Show All** to return to the complete employee list.
 
+Example:
+
+```text
+Search: Jose
+
+EMP001 | Jose Navoa | IT | IT Assistant
+```
+
+---
+
+# Delete Employee
+
+The Employee Management section includes a delete function.
+
+Users can select an employee from the employee table and remove the employee from the system.
+
+Before deleting an employee, the system can display a confirmation message.
+
+Example:
+
+```text
+Are you sure you want to delete this employee?
+```
+
+This helps prevent accidental deletion of employee information.
+
 ---
 
 # Clock In
@@ -155,6 +220,8 @@ When an employee clocks in, the system:
 6. Creates an attendance record.
 7. Stores the clock-in information.
 8. Associates the attendance record with the employee.
+9. Updates the attendance status.
+10. Refreshes the attendance information.
 
 Example:
 
@@ -185,6 +252,7 @@ When an employee clocks out, the system:
 6. Updates the attendance record.
 7. Saves the clock-out information.
 8. Changes the attendance status to completed.
+9. Refreshes the attendance information.
 
 Example:
 
@@ -200,36 +268,6 @@ Status: Completed
 This creates a complete attendance session containing both the clock-in and clock-out times.
 
 The system also prevents an employee from clocking out when there is no active clock-in session.
-
----
-
-# Working Hours Calculation
-
-The Python version calculates the amount of time an employee worked during a completed attendance session.
-
-The calculation is based on:
-
-```text
-Clock Out Time
-       -
-Clock In Time
-       =
-Total Working Time
-```
-
-The result is displayed using hours, minutes, and seconds.
-
-Example:
-
-```text
-Clock In:      08:00:00 AM
-Clock Out:     05:00:00 PM
-
-Working Hours:
-9h 0m 0s
-```
-
-This allows the attendance records to provide more information than simply storing clock-in and clock-out times.
 
 ---
 
@@ -265,6 +303,36 @@ This makes common attendance actions faster and easier to access.
 
 ---
 
+# Working Hours Calculation
+
+The Python version calculates the amount of time an employee worked during a completed attendance session.
+
+The calculation is based on:
+
+```text
+Clock Out Time
+       -
+Clock In Time
+       =
+Total Working Time
+```
+
+The result is displayed using hours, minutes, and seconds.
+
+Example:
+
+```text
+Clock In:      08:00:00 AM
+Clock Out:     05:00:00 PM
+
+Working Hours:
+9h 0m 0s
+```
+
+The system can also use the recorded attendance information to calculate total and average working hours.
+
+---
+
 # Attendance Records
 
 The Attendance section allows users to review recorded attendance.
@@ -273,6 +341,7 @@ An attendance record can contain:
 
 * Employee ID
 * Employee name
+* Attendance date
 * Clock-in time
 * Clock-out time
 * Working hours
@@ -280,10 +349,10 @@ An attendance record can contain:
 
 Example:
 
-| Employee ID | Employee | Clock In | Clock Out | Working Hours | Status |
-|---|---|---|---|---|---|
-| EMP001 | Jose Navoa | 08:02 AM | 05:04 PM | 9h 2m 0s | Completed |
-| EMP002 | Employee 2 | 08:15 AM | 05:10 PM | 8h 55m 0s | Completed |
+| Employee ID | Employee   | Clock In | Clock Out | Working Hours | Status    |
+| ----------- | ---------- | -------- | --------- | ------------- | --------- |
+| EMP001      | Jose Navoa | 08:02 AM | 05:04 PM  | 9h 2m 0s      | Completed |
+| EMP002      | Employee 2 | 08:15 AM | 05:10 PM  | 8h 55m 0s     | Completed |
 
 Attendance information is retained so previous records can be reviewed.
 
@@ -306,6 +375,7 @@ The page also provides options to:
 * View today's attendance
 * Show all attendance records
 * Refresh attendance information
+* Filter attendance records
 
 This makes it easier to locate specific attendance records.
 
@@ -324,6 +394,114 @@ This allows users to quickly see who has:
 
 The dashboard also displays today's attendance records automatically.
 
+Example:
+
+```text
+========================================
+        TODAY'S ATTENDANCE
+========================================
+
+EMP001 | Jose Navoa
+Clock In: 08:02 AM
+Clock Out: 05:04 PM
+Hours: 9h 2m 0s
+Status: Completed
+
+EMP002 | Employee 2
+Clock In: 08:15 AM
+Status: Currently Working
+```
+
+---
+
+# Currently Working Employees
+
+The system can identify employees who currently have an active attendance session.
+
+This allows the dashboard and attendance pages to show employees who are currently working.
+
+Example:
+
+```text
+========================================
+       CURRENTLY WORKING
+========================================
+
+EMP001 | Jose Navoa
+Clock In: 08:02 AM
+
+EMP003 | Mark Santos
+Clock In: 08:21 AM
+```
+
+This information is also used by the dashboard's **Currently Working** statistic.
+
+---
+
+# Attendance Summary
+
+The system provides attendance summaries based on recorded employee attendance.
+
+A summary can include:
+
+* Total attendance records
+* Completed attendance records
+* Currently working employees
+* Total working hours
+* Average working hours
+* Employee attendance totals
+
+Example:
+
+```text
+========================================
+         ATTENDANCE SUMMARY
+========================================
+
+Employee: Jose Navoa
+Employee ID: EMP001
+
+Total Records: 15
+Completed Records: 14
+Currently Working: No
+Total Hours: 126h 30m
+Average Hours: 9h 2m
+```
+
+---
+
+# Attendance Statistics
+
+The system provides statistics that summarize the current attendance situation.
+
+Statistics can include:
+
+```text
+Total Employees
+Currently Working
+Clocked Out
+Today's Records
+Total Attendance Records
+Completed Records
+Total Working Hours
+Average Working Hours
+```
+
+Example:
+
+```text
+========================================
+        ATTENDANCE STATISTICS
+========================================
+
+Total Employees: 10
+Currently Working: 4
+Clocked Out: 6
+Today's Records: 10
+Completed Records: 8
+Total Working Hours: 72h 30m
+```
+
 ---
 
 # Live Date and Time
@@ -337,9 +515,26 @@ Current Date
 Current Time
 ```
 
-The time is refreshed every second while the application is running.
+The time is refreshed continuously while the application is running.
 
 This provides a real-time view of the current system time for attendance operations.
+
+---
+
+# Refresh Functionality
+
+The Python version includes refresh functionality for different sections of the application.
+
+Refresh actions can update:
+
+* Dashboard statistics
+* Employee list
+* Attendance records
+* Today's attendance
+* Search results
+* Currently working employees
+
+This allows the interface to display the most recent information without restarting the application.
 
 ---
 
@@ -357,8 +552,53 @@ Examples include:
 * Preventing duplicate employee IDs
 * Confirming employee deletion
 * Maintaining valid attendance sessions
+* Checking required employee fields
+* Handling invalid searches
+* Handling missing employee records
 
 These controls help keep attendance information organized and consistent.
+
+---
+
+# Attendance Status
+
+Attendance records can have different statuses depending on the employee's current work session.
+
+Common statuses include:
+
+```text
+Currently Working
+Completed
+```
+
+Example:
+
+```text
+EMP001 | Jose Navoa | Currently Working
+EMP002 | John Cruz | Completed
+```
+
+The status changes automatically when an employee clocks out.
+
+---
+
+# Attendance Record Management
+
+The expanded attendance functionality allows the system to manage attendance information more effectively.
+
+Attendance management includes:
+
+* Creating attendance records
+* Viewing attendance records
+* Searching attendance records
+* Filtering attendance records
+* Viewing today's attendance
+* Viewing all attendance
+* Identifying active attendance sessions
+* Calculating working hours
+* Updating completed attendance records
+* Removing attendance records where supported
+* Refreshing attendance information
 
 ---
 
@@ -385,18 +625,23 @@ The Python version includes:
 * Desktop graphical interface
 * Dashboard
 * Employee management
+* Add employee
 * Employee search
 * Employee deletion
+* Employee validation
 * Clock In
 * Clock Out
 * Quick attendance controls
 * Attendance records
 * Attendance search
+* Attendance filtering
 * Today's attendance view
 * Show all attendance records
+* Currently working employees
+* Attendance summary
+* Attendance statistics
 * Automatic working-hours calculation
 * Live date and time
-* Attendance statistics
 * SQLite database
 * Persistent data storage
 * Input validation
@@ -405,6 +650,7 @@ The Python version includes:
 * Navigation between application pages
 * Confirmation dialogs
 * Error handling
+* Refresh functionality
 
 ---
 
@@ -420,6 +666,9 @@ The dashboard now includes:
 * Currently Working
 * Clocked Out
 * Today's Records
+* Completed Attendance Records
+* Total Working Hours
+* Average Working Hours
 
 ## Quick Attendance
 
@@ -446,6 +695,10 @@ Status
 ## Live Clock
 
 The dashboard also displays the current date and time and updates automatically.
+
+## Refresh
+
+The dashboard can refresh its statistics and today's attendance information.
 
 ---
 
@@ -481,6 +734,10 @@ Additional controls include:
 * Show All
 * Delete Selected Employee
 * Clear form after successful registration
+* Refresh employee list
+* Duplicate Employee ID validation
+* Required-field validation
+* Employee selection
 
 ---
 
@@ -499,6 +756,8 @@ It also includes an attendance history section with:
 * Search
 * Today
 * Show All
+* Refresh
+* Attendance filtering
 
 The attendance table displays:
 
@@ -511,7 +770,45 @@ Working Hours
 Status
 ```
 
+The Attendance page can also identify employees who are currently working.
+
 This creates a more complete attendance-management workflow.
+
+---
+
+# Python Attendance Functions
+
+The expanded Python attendance system includes functions for:
+
+```text
+Employee Management
+        │
+        ├── Add Employee
+        ├── Search Employee
+        ├── Show All Employees
+        ├── Delete Employee
+        └── Validate Employee
+                 │
+                 ▼
+          Attendance Management
+                 │
+        ┌────────┼────────┐
+        ▼        ▼        ▼
+     Clock In Clock Out Search
+        │        │        │
+        └────────┼────────┘
+                 ▼
+        Attendance Records
+                 │
+        ┌────────┼────────┐
+        ▼        ▼        ▼
+       Today   Summary   Statistics
+                 │
+                 ▼
+          Working Hours
+```
+
+These functions allow the application to handle the complete basic attendance workflow.
 
 ---
 
@@ -601,6 +898,8 @@ Responsible for:
 * Retrieving today's attendance
 * Searching attendance
 * Calculating dashboard statistics
+* Calculating working hours
+* Retrieving attendance summaries
 
 The database provides persistent storage so information remains available after restarting the application.
 
@@ -613,11 +912,13 @@ Responsible for:
 * Dashboard layout
 * Live date and time
 * Attendance statistics
+* Attendance summary
 * Quick attendance controls
 * Today's attendance table
 * Dashboard refresh
 * Clock In
 * Clock Out
+* Currently working employee information
 
 ### `employees.py`
 
@@ -632,6 +933,9 @@ Responsible for:
 * Deleting selected employees
 * Managing employee information
 * Validating employee input
+* Preventing duplicate employee IDs
+* Clearing the employee form
+* Refreshing the employee list
 
 ### `attendance.py`
 
@@ -650,6 +954,8 @@ Responsible for:
 * Viewing all attendance
 * Managing attendance sessions
 * Displaying attendance status
+* Refreshing attendance records
+* Showing currently working employees
 
 ### `company_attnce.db`
 
@@ -682,6 +988,8 @@ Employees
 ```
 
 The attendance system connects employee information with attendance records.
+
+Attendance records can also contain a status that identifies whether the employee is currently working or has completed the work session.
 
 ---
 
@@ -821,27 +1129,27 @@ This allows the Web Version to maintain information even after the browser page 
 
 Both versions implement the same general attendance-management concept but use different technologies.
 
-| Feature | Python Version | Web Version |
-|---|---|---|
-| Platform | Desktop | Browser |
-| Language | Python | JavaScript |
-| Interface | CustomTkinter | HTML/CSS |
-| Database | SQLite | Browser Local Storage |
-| Dashboard | Yes | Yes |
-| Employees | Yes | Yes |
-| Employee Search | Yes | Yes |
-| Employee Delete | Yes | Yes |
-| Clock In | Yes | Yes |
-| Clock Out | Yes | Yes |
-| Working Hours | Yes | Yes |
-| Attendance Records | Yes | Yes |
-| Attendance Search | Yes | Yes |
-| Today's Records | Yes | Yes |
-| Statistics | Yes | Yes |
-| Live Clock | Yes | Yes |
-| Persistent Storage | SQLite | Local Storage |
-| Installation | Python required | Browser required |
-| Internet Required | No | No for local version |
+| Feature            | Python Version  | Web Version           |
+| ------------------ | --------------- | --------------------- |
+| Platform           | Desktop         | Browser               |
+| Language           | Python          | JavaScript            |
+| Interface          | CustomTkinter   | HTML/CSS              |
+| Database           | SQLite          | Browser Local Storage |
+| Dashboard          | Yes             | Yes                   |
+| Employees          | Yes             | Yes                   |
+| Employee Search    | Yes             | Yes                   |
+| Employee Delete    | Yes             | Yes                   |
+| Clock In           | Yes             | Yes                   |
+| Clock Out          | Yes             | Yes                   |
+| Working Hours      | Yes             | Yes                   |
+| Attendance Records | Yes             | Yes                   |
+| Attendance Search  | Yes             | Yes                   |
+| Today's Records    | Yes             | Yes                   |
+| Statistics         | Yes             | Yes                   |
+| Live Clock         | Yes             | Yes                   |
+| Persistent Storage | SQLite          | Local Storage         |
+| Installation       | Python required | Browser required      |
+| Internet Required  | No              | No for local version  |
 
 ---
 
@@ -909,6 +1217,13 @@ The complete attendance workflow is:
                                             │
                                             ▼
                                     Attendance Record
+                                            │
+                              ┌─────────────┴─────────────┐
+                              ▼                           ▼
+                       Attendance Search           Attendance Summary
+                              │                           │
+                              ▼                           ▼
+                       Today's Records             Statistics
 ```
 
 ---
@@ -927,6 +1242,9 @@ Examples include:
 * Maintaining completed attendance records
 * Validating employee information
 * Preventing duplicate employee IDs
+* Validating required fields
+* Checking employee existence
+* Maintaining valid attendance status
 
 These controls help keep attendance information organized and consistent.
 
@@ -981,22 +1299,22 @@ A future production version could replace Local Storage with a server-side datab
 
 ## Python Version
 
-| Technology | Purpose |
-|---|---|
-| Python | Main programming language |
-| CustomTkinter | Desktop GUI |
-| SQLite | Database |
-| datetime | Date and time |
-| Tkinter Treeview | Data tables |
+| Technology       | Purpose                   |
+| ---------------- | ------------------------- |
+| Python           | Main programming language |
+| CustomTkinter    | Desktop GUI               |
+| SQLite           | Database                  |
+| datetime         | Date and time             |
+| Tkinter Treeview | Data tables               |
 
 ## Web Version
 
-| Technology | Purpose |
-|---|---|
-| HTML | Application structure |
-| CSS | Design and layout |
-| JavaScript | Application functionality |
-| Local Storage | Browser data persistence |
+| Technology    | Purpose                   |
+| ------------- | ------------------------- |
+| HTML          | Application structure     |
+| CSS           | Design and layout         |
+| JavaScript    | Application functionality |
+| Local Storage | Browser data persistence  |
 
 ---
 
@@ -1027,6 +1345,8 @@ Used to organize operations such as:
 * Retrieving attendance
 * Updating records
 * Calculating working hours
+* Calculating attendance summaries
+* Refreshing application data
 
 ### Object-Oriented Programming
 
@@ -1064,6 +1384,7 @@ Both versions respond to user actions such as:
 * Clocking in
 * Clocking out
 * Selecting records
+* Refreshing information
 
 ### Date and Time Handling
 
@@ -1527,7 +1848,9 @@ Dashboard
     │
     ├── Live Date and Time
     ├── Attendance Statistics
+    ├── Attendance Summary
     ├── Quick Attendance
+    ├── Currently Working Employees
     └── Today's Attendance
              │
              ▼
@@ -1536,7 +1859,9 @@ Employees
     ├── Add Employee
     ├── Search Employee
     ├── Show All
-    └── Delete Employee
+    ├── Delete Employee
+    ├── Clear Form
+    └── Employee Validation
              │
              ▼
 Attendance
@@ -1546,7 +1871,9 @@ Attendance
     ├── Working Hours
     ├── Search Attendance
     ├── Today
-    └── Show All
+    ├── Show All
+    ├── Refresh
+    └── Attendance Status
 ```
 
 ## Web Version
