@@ -1,496 +1,561 @@
 import customtkinter as ctk
 from tkinter import messagebox
-
-from database import (
-    add_employee,
-    update_employee,
-    delete_employee,
-    get_all_employees,
-    get_active_attendance
-)
+import database
 
 
-class EmployeesPage(ctk.CTkFrame):
-    def __init__(self, parent):
-        super().__init__(parent)
+def show_employees(parent):
+    employees_frame = ctk.CTkFrame(
+        parent,
+        fg_color="#f5f5f5",
+        corner_radius=0
+    )
+    employees_frame.pack(fill="both", expand=True)
 
-        self.grid_columnconfigure(
-            0,
-            weight=1
+    # Header
+    header_frame = ctk.CTkFrame(
+        employees_frame,
+        fg_color="transparent"
+    )
+    header_frame.pack(
+        fill="x",
+        padx=30,
+        pady=(25, 15)
+    )
+
+    title = ctk.CTkLabel(
+        header_frame,
+        text="Employees",
+        font=ctk.CTkFont(size=30, weight="bold"),
+        text_color="#222222"
+    )
+    title.pack(side="left")
+
+    add_button = ctk.CTkButton(
+        header_frame,
+        text="+ Add Employee",
+        width=140,
+        height=40,
+        corner_radius=8,
+        command=lambda: add_employee(parent)
+    )
+    add_button.pack(side="right")
+
+    # Search bar
+    search_frame = ctk.CTkFrame(
+        employees_frame,
+        fg_color="transparent"
+    )
+    search_frame.pack(
+        fill="x",
+        padx=30,
+        pady=(0, 10)
+    )
+
+    search_entry = ctk.CTkEntry(
+        search_frame,
+        placeholder_text="Search employee...",
+        height=40,
+        width=300
+    )
+    search_entry.pack(side="left")
+
+    search_button = ctk.CTkButton(
+        search_frame,
+        text="Search",
+        width=90,
+        height=40,
+        command=lambda: load_employees(
+            table_frame,
+            search_entry.get()
         )
+    )
+    search_button.pack(
+        side="left",
+        padx=8
+    )
 
-        self.grid_rowconfigure(
-            3,
-            weight=1
+    refresh_button = ctk.CTkButton(
+        search_frame,
+        text="Refresh",
+        width=90,
+        height=40,
+        fg_color="#555555",
+        hover_color="#444444",
+        command=lambda: load_employees(
+            table_frame
         )
+    )
+    refresh_button.pack(side="left")
 
-        self.selected_employee = None
+    # Employee table
+    table_container = ctk.CTkFrame(
+        employees_frame,
+        fg_color="white",
+        corner_radius=12
+    )
+    table_container.pack(
+        fill="both",
+        expand=True,
+        padx=30,
+        pady=(5, 25)
+    )
 
-        self.create_ui()
+    table_frame = ctk.CTkScrollableFrame(
+        table_container,
+        fg_color="white"
+    )
+    table_frame.pack(
+        fill="both",
+        expand=True,
+        padx=10,
+        pady=10
+    )
 
-        self.load_employees()
+    load_employees(table_frame)
 
-    # =====================================================
-    # UI
-    # =====================================================
 
-    def create_ui(self):
-        title = ctk.CTkLabel(
-            self,
-            text="Employee Management",
-            font=("Arial", 30, "bold")
-        )
+def load_employees(parent, search_text=""):
+    # Clear existing records
+    for widget in parent.winfo_children():
+        widget.destroy()
 
-        title.grid(
-            row=0,
-            column=0,
-            sticky="w",
-            pady=(0, 20)
-        )
+    try:
+        connection = database.get_connection()
+        cursor = connection.cursor()
 
-        form = ctk.CTkFrame(
-            self
-        )
-
-        form.grid(
-            row=1,
-            column=0,
-            sticky="ew",
-            pady=(0, 15)
-        )
-
-        for i in range(4):
-            form.grid_columnconfigure(
-                i,
-                weight=1
+        if search_text.strip():
+            cursor.execute(
+                """
+                SELECT id, name, position, department, contact
+                FROM employees
+                WHERE name LIKE ?
+                OR position LIKE ?
+                OR department LIKE ?
+                """,
+                (
+                    "%" + search_text + "%",
+                    "%" + search_text + "%",
+                    "%" + search_text + "%"
+                )
             )
-
-        self.employee_id = ctk.CTkEntry(
-            form,
-            placeholder_text="Employee ID"
-        )
-
-        self.employee_id.grid(
-            row=0,
-            column=0,
-            padx=8,
-            pady=15,
-            sticky="ew"
-        )
-
-        self.name = ctk.CTkEntry(
-            form,
-            placeholder_text="Employee Name"
-        )
-
-        self.name.grid(
-            row=0,
-            column=1,
-            padx=8,
-            pady=15,
-            sticky="ew"
-        )
-
-        self.department = ctk.CTkEntry(
-            form,
-            placeholder_text="Department"
-        )
-
-        self.department.grid(
-            row=0,
-            column=2,
-            padx=8,
-            pady=15,
-            sticky="ew"
-        )
-
-        self.position = ctk.CTkEntry(
-            form,
-            placeholder_text="Position"
-        )
-
-        self.position.grid(
-            row=0,
-            column=3,
-            padx=8,
-            pady=15,
-            sticky="ew"
-        )
-
-        ctk.CTkButton(
-            form,
-            text="ADD EMPLOYEE",
-            command=self.add
-        ).grid(
-            row=1,
-            column=0,
-            padx=8,
-            pady=(0, 15),
-            sticky="ew"
-        )
-
-        ctk.CTkButton(
-            form,
-            text="UPDATE",
-            command=self.update
-        ).grid(
-            row=1,
-            column=1,
-            padx=8,
-            pady=(0, 15),
-            sticky="ew"
-        )
-
-        ctk.CTkButton(
-            form,
-            text="DELETE",
-            fg_color="#c0392b",
-            hover_color="#922b21",
-            command=self.delete
-        ).grid(
-            row=1,
-            column=2,
-            padx=8,
-            pady=(0, 15),
-            sticky="ew"
-        )
-
-        ctk.CTkButton(
-            form,
-            text="CLEAR",
-            command=self.clear_form
-        ).grid(
-            row=1,
-            column=3,
-            padx=8,
-            pady=(0, 15),
-            sticky="ew"
-        )
-
-        self.search = ctk.CTkEntry(
-            self,
-            placeholder_text="Search employee..."
-        )
-
-        self.search.grid(
-            row=2,
-            column=0,
-            sticky="ew",
-            pady=(0, 15)
-        )
-
-        self.search.bind(
-            "<KeyRelease>",
-            lambda event: self.load_employees()
-        )
-
-        self.employee_list = ctk.CTkScrollableFrame(
-            self
-        )
-
-        self.employee_list.grid(
-            row=3,
-            column=0,
-            sticky="nsew"
-        )
-
-    # =====================================================
-    # ADD
-    # =====================================================
-
-    def add(self):
-        employee_id = self.employee_id.get().strip()
-        name = self.name.get().strip()
-        department = self.department.get().strip()
-        position = self.position.get().strip()
-
-        if not employee_id or not name:
-            messagebox.showwarning(
-                "Missing Information",
-                "Employee ID and name are required."
-            )
-
-            return
-
-        if not department:
-            messagebox.showwarning(
-                "Missing Information",
-                "Please enter a department."
-            )
-
-            return
-
-        if not position:
-            messagebox.showwarning(
-                "Missing Information",
-                "Please enter a position."
-            )
-
-            return
-
-        success, message = add_employee(
-            employee_id,
-            name,
-            department,
-            position
-        )
-
-        if success:
-            messagebox.showinfo(
-                "Success",
-                message
-            )
-
-            self.clear_form()
-            self.load_employees()
-
         else:
-            messagebox.showerror(
-                "Error",
-                message
+            cursor.execute(
+                """
+                SELECT id, name, position, department, contact
+                FROM employees
+                ORDER BY id DESC
+                """
             )
 
-    # =====================================================
-    # UPDATE
-    # =====================================================
+        employees = cursor.fetchall()
 
-    def update(self):
-        employee_id = self.employee_id.get().strip()
-        name = self.name.get().strip()
-        department = self.department.get().strip()
-        position = self.position.get().strip()
+        connection.close()
 
-        if not employee_id:
-            messagebox.showwarning(
-                "Missing ID",
-                "Enter an employee ID."
-            )
-
-            return
-
-        changed = update_employee(
-            employee_id,
-            name,
-            department,
-            position
-        )
-
-        if changed:
-            messagebox.showinfo(
-                "Updated",
-                "Employee information updated."
-            )
-
-            self.clear_form()
-            self.load_employees()
-
-        else:
-            messagebox.showerror(
-                "Error",
-                "Employee not found."
-            )
-
-    # =====================================================
-    # DELETE
-    # =====================================================
-
-    def delete(self):
-        employee_id = self.employee_id.get().strip()
-
-        if not employee_id:
-            messagebox.showwarning(
-                "Missing ID",
-                "Enter an employee ID."
-            )
-
-            return
-
-        confirm = messagebox.askyesno(
-            "Delete Employee",
-            "Are you sure you want to delete this employee?"
-        )
-
-        if not confirm:
-            return
-
-        if get_active_attendance(employee_id):
-            messagebox.showwarning(
-                "Cannot Delete",
-                "This employee is currently clocked in."
-            )
-
-            return
-
-        deleted = delete_employee(
-            employee_id
-        )
-
-        if deleted:
-            messagebox.showinfo(
-                "Deleted",
-                "Employee deleted successfully."
-            )
-
-            self.clear_form()
-            self.load_employees()
-
-        else:
-            messagebox.showerror(
-                "Error",
-                "Employee not found."
-            )
-
-    # =====================================================
-    # LOAD EMPLOYEES
-    # =====================================================
-
-    def load_employees(self):
-        for widget in self.employee_list.winfo_children():
-            widget.destroy()
-
-        search = self.search.get().strip()
-
-        employees = get_all_employees(
-            search
-        )
-
-        if not employees:
-            ctk.CTkLabel(
-                self.employee_list,
-                text="No employees found.",
-                text_color="gray"
-            ).pack(
-                pady=30
-            )
-
-            return
-
+        # Table headers
         headers = [
             "ID",
             "Name",
-            "Department",
             "Position",
-            "Status"
+            "Department",
+            "Contact",
+            "Actions"
         ]
 
-        header = ctk.CTkFrame(
-            self.employee_list
-        )
+        for column, header in enumerate(headers):
+            label = ctk.CTkLabel(
+                parent,
+                text=header,
+                font=ctk.CTkFont(
+                    size=13,
+                    weight="bold"
+                ),
+                text_color="#555555"
+            )
 
-        header.pack(
-            fill="x",
-            pady=(0, 5)
-        )
+            label.grid(
+                row=0,
+                column=column,
+                padx=10,
+                pady=12,
+                sticky="w"
+            )
 
-        for text in headers:
-            ctk.CTkLabel(
-                header,
-                text=text,
-                font=("Arial", 12, "bold")
-            ).pack(
+        # Make columns expand
+        for column in range(6):
+            parent.grid_columnconfigure(
+                column,
+                weight=1
+            )
+
+        # Employee records
+        for row, employee in enumerate(employees, start=1):
+            employee_id = employee[0]
+            name = employee[1]
+            position = employee[2]
+            department = employee[3]
+            contact = employee[4]
+
+            create_cell(
+                parent,
+                employee_id,
+                row,
+                0
+            )
+
+            create_cell(
+                parent,
+                name,
+                row,
+                1
+            )
+
+            create_cell(
+                parent,
+                position,
+                row,
+                2
+            )
+
+            create_cell(
+                parent,
+                department,
+                row,
+                3
+            )
+
+            create_cell(
+                parent,
+                contact,
+                row,
+                4
+            )
+
+            # Action buttons
+            action_frame = ctk.CTkFrame(
+                parent,
+                fg_color="transparent"
+            )
+            action_frame.grid(
+                row=row,
+                column=5,
+                padx=5,
+                pady=5
+            )
+
+            edit_button = ctk.CTkButton(
+                action_frame,
+                text="Edit",
+                width=55,
+                height=30,
+                command=lambda emp=employee:
+                edit_employee(emp, parent)
+            )
+            edit_button.pack(
                 side="left",
-                expand=True,
-                fill="x",
-                pady=10
+                padx=2
             )
 
-        for employee in employees:
-            row = ctk.CTkFrame(
-                self.employee_list
+            delete_button = ctk.CTkButton(
+                action_frame,
+                text="Delete",
+                width=60,
+                height=30,
+                fg_color="#555555",
+                hover_color="#333333",
+                command=lambda emp_id=employee_id:
+                delete_employee(emp_id, parent)
+            )
+            delete_button.pack(
+                side="left",
+                padx=2
             )
 
-            row.pack(
-                fill="x",
-                pady=2
+        if not employees:
+            empty_label = ctk.CTkLabel(
+                parent,
+                text="No employees found.",
+                font=ctk.CTkFont(size=15),
+                text_color="#777777"
             )
 
-            if get_active_attendance(
-                employee["employee_id"]
-            ):
-                status = "Working"
-            else:
-                status = "Off Duty"
+            empty_label.grid(
+                row=1,
+                column=0,
+                columnspan=6,
+                pady=40
+            )
 
-            values = [
-                employee["employee_id"],
-                employee["name"],
-                employee["department"],
-                employee["position"],
-                status
-            ]
+    except Exception as error:
+        messagebox.showerror(
+            "Database Error",
+            "Unable to load employees.\n\n" + str(error)
+        )
 
-            for value in values:
-                ctk.CTkLabel(
-                    row,
-                    text=value
-                ).pack(
-                    side="left",
-                    expand=True,
-                    fill="x",
-                    pady=8
+
+def create_cell(parent, text, row, column):
+    label = ctk.CTkLabel(
+        parent,
+        text=str(text) if text else "-",
+        font=ctk.CTkFont(size=13),
+        text_color="#333333"
+    )
+
+    label.grid(
+        row=row,
+        column=column,
+        padx=10,
+        pady=8,
+        sticky="w"
+    )
+
+
+def add_employee(parent):
+    window = ctk.CTkToplevel(parent)
+    window.title("Add Employee")
+    window.geometry("450x550")
+    window.resizable(False, False)
+
+    window.transient(parent)
+    window.grab_set()
+
+    title = ctk.CTkLabel(
+        window,
+        text="Add Employee",
+        font=ctk.CTkFont(size=24, weight="bold")
+    )
+    title.pack(pady=(30, 25))
+
+    name_entry = create_entry(
+        window,
+        "Full Name"
+    )
+
+    position_entry = create_entry(
+        window,
+        "Position"
+    )
+
+    department_entry = create_entry(
+        window,
+        "Department"
+    )
+
+    contact_entry = create_entry(
+        window,
+        "Contact Number"
+    )
+
+    def save_employee():
+        name = name_entry.get().strip()
+        position = position_entry.get().strip()
+        department = department_entry.get().strip()
+        contact = contact_entry.get().strip()
+
+        if not name:
+            messagebox.showwarning(
+                "Missing Information",
+                "Please enter the employee name."
+            )
+            return
+
+        try:
+            connection = database.get_connection()
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                INSERT INTO employees
+                (name, position, department, contact)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    name,
+                    position,
+                    department,
+                    contact
                 )
-
-            row.bind(
-                "<Button-1>",
-                lambda event, e=employee:
-                self.select_employee(e)
             )
 
-            for child in row.winfo_children():
-                child.bind(
-                    "<Button-1>",
-                    lambda event, e=employee:
-                    self.select_employee(e)
+            connection.commit()
+            connection.close()
+
+            messagebox.showinfo(
+                "Success",
+                "Employee added successfully."
+            )
+
+            window.destroy()
+
+            show_employees(parent)
+
+        except Exception as error:
+            messagebox.showerror(
+                "Database Error",
+                str(error)
+            )
+
+    save_button = ctk.CTkButton(
+        window,
+        text="Save Employee",
+        width=180,
+        height=40,
+        command=save_employee
+    )
+    save_button.pack(pady=25)
+
+
+def edit_employee(employee, parent):
+    window = ctk.CTkToplevel(parent)
+    window.title("Edit Employee")
+    window.geometry("450x550")
+    window.resizable(False, False)
+
+    window.transient(parent)
+    window.grab_set()
+
+    title = ctk.CTkLabel(
+        window,
+        text="Edit Employee",
+        font=ctk.CTkFont(size=24, weight="bold")
+    )
+    title.pack(pady=(30, 25))
+
+    name_entry = create_entry(
+        window,
+        "Full Name",
+        employee[1]
+    )
+
+    position_entry = create_entry(
+        window,
+        "Position",
+        employee[2]
+    )
+
+    department_entry = create_entry(
+        window,
+        "Department",
+        employee[3]
+    )
+
+    contact_entry = create_entry(
+        window,
+        "Contact Number",
+        employee[4]
+    )
+
+    def update_employee():
+        name = name_entry.get().strip()
+        position = position_entry.get().strip()
+        department = department_entry.get().strip()
+        contact = contact_entry.get().strip()
+
+        if not name:
+            messagebox.showwarning(
+                "Missing Information",
+                "Please enter the employee name."
+            )
+            return
+
+        try:
+            connection = database.get_connection()
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                UPDATE employees
+                SET name = ?,
+                    position = ?,
+                    department = ?,
+                    contact = ?
+                WHERE id = ?
+                """,
+                (
+                    name,
+                    position,
+                    department,
+                    contact,
+                    employee[0]
                 )
+            )
 
-    # =====================================================
-    # SELECT
-    # =====================================================
+            connection.commit()
+            connection.close()
 
-    def select_employee(self, employee):
-        self.clear_form()
+            messagebox.showinfo(
+                "Success",
+                "Employee updated successfully."
+            )
 
-        self.employee_id.insert(
-            0,
-            employee["employee_id"]
+            window.destroy()
+
+            show_employees(parent)
+
+        except Exception as error:
+            messagebox.showerror(
+                "Database Error",
+                str(error)
+            )
+
+    update_button = ctk.CTkButton(
+        window,
+        text="Save Changes",
+        width=180,
+        height=40,
+        command=update_employee
+    )
+    update_button.pack(pady=25)
+
+
+def delete_employee(employee_id, parent):
+    answer = messagebox.askyesno(
+        "Delete Employee",
+        "Are you sure you want to delete this employee?"
+    )
+
+    if not answer:
+        return
+
+    try:
+        connection = database.get_connection()
+        cursor = connection.cursor()
+
+        cursor.execute(
+            "DELETE FROM employees WHERE id = ?",
+            (employee_id,)
         )
 
-        self.name.insert(
-            0,
-            employee["name"]
+        connection.commit()
+        connection.close()
+
+        messagebox.showinfo(
+            "Success",
+            "Employee deleted successfully."
         )
 
-        self.department.insert(
-            0,
-            employee["department"]
+        show_employees(parent)
+
+    except Exception as error:
+        messagebox.showerror(
+            "Database Error",
+            str(error)
         )
 
-        self.position.insert(
-            0,
-            employee["position"]
-        )
 
-    # =====================================================
-    # CLEAR
-    # =====================================================
+def create_entry(parent, placeholder, value=""):
+    entry = ctk.CTkEntry(
+        parent,
+        placeholder_text=placeholder,
+        width=330,
+        height=40
+    )
 
-    def clear_form(self):
-        self.employee_id.delete(
-            0,
-            "end"
-        )
+    entry.pack(
+        padx=20,
+        pady=7
+    )
 
-        self.name.delete(
-            0,
-            "end"
-        )
+    if value:
+        entry.insert(0, value)
 
-        self.department.delete(
-            0,
-            "end"
-        )
-
-        self.position.delete(
-            0,
-            "end"
-        )
+    return entry
