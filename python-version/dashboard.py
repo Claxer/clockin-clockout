@@ -1,337 +1,354 @@
 import customtkinter as ctk
 from datetime import datetime
-
-from database import (
-    get_dashboard_stats,
-    get_today_attendance
-)
+import database
 
 
-class DashboardPage(ctk.CTkFrame):
-    def __init__(self, parent, open_attendance):
-        super().__init__(parent)
+def show_dashboard(parent):
+    # Main dashboard frame
+    dashboard_frame = ctk.CTkFrame(
+        parent,
+        fg_color="#f5f5f5",
+        corner_radius=0
+    )
+    dashboard_frame.pack(fill="both", expand=True)
 
-        self.open_attendance = open_attendance
+    # Header
+    header_frame = ctk.CTkFrame(
+        dashboard_frame,
+        fg_color="transparent"
+    )
+    header_frame.pack(
+        fill="x",
+        padx=30,
+        pady=(25, 10)
+    )
 
-        self.grid_columnconfigure(
-            0,
-            weight=1
+    title = ctk.CTkLabel(
+        header_frame,
+        text="Dashboard",
+        font=ctk.CTkFont(size=30, weight="bold"),
+        text_color="#222222"
+    )
+    title.pack(side="left")
+
+    date_label = ctk.CTkLabel(
+        header_frame,
+        text=datetime.now().strftime("%B %d, %Y"),
+        font=ctk.CTkFont(size=15),
+        text_color="#666666"
+    )
+    date_label.pack(side="right", pady=8)
+
+    # Get statistics
+    total_employees = get_total_employees()
+    present_today = get_present_today()
+    late_today = get_late_today()
+
+    absent_today = total_employees - present_today
+
+    if absent_today < 0:
+        absent_today = 0
+
+    # Statistics container
+    stats_frame = ctk.CTkFrame(
+        dashboard_frame,
+        fg_color="transparent"
+    )
+    stats_frame.pack(
+        fill="x",
+        padx=30,
+        pady=15
+    )
+
+    # Statistics cards
+    create_stat_card(
+        stats_frame,
+        "Total Employees",
+        str(total_employees),
+        0
+    )
+
+    create_stat_card(
+        stats_frame,
+        "Present Today",
+        str(present_today),
+        1
+    )
+
+    create_stat_card(
+        stats_frame,
+        "Late Today",
+        str(late_today),
+        2
+    )
+
+    create_stat_card(
+        stats_frame,
+        "Absent Today",
+        str(absent_today),
+        3
+    )
+
+    # Recent attendance section
+    recent_frame = ctk.CTkFrame(
+        dashboard_frame,
+        fg_color="white",
+        corner_radius=12
+    )
+    recent_frame.pack(
+        fill="both",
+        expand=True,
+        padx=30,
+        pady=(10, 25)
+    )
+
+    recent_title = ctk.CTkLabel(
+        recent_frame,
+        text="Recent Attendance",
+        font=ctk.CTkFont(size=20, weight="bold"),
+        text_color="#222222"
+    )
+    recent_title.pack(
+        anchor="w",
+        padx=20,
+        pady=(20, 10)
+    )
+
+    # Scrollable area
+    records_frame = ctk.CTkScrollableFrame(
+        recent_frame,
+        fg_color="white"
+    )
+    records_frame.pack(
+        fill="both",
+        expand=True,
+        padx=15,
+        pady=(0, 15)
+    )
+
+    show_recent_attendance(records_frame)
+
+
+def create_stat_card(parent, title, value, column):
+    card = ctk.CTkFrame(
+        parent,
+        fg_color="white",
+        corner_radius=12,
+        height=120
+    )
+
+    card.grid(
+        row=0,
+        column=column,
+        padx=6,
+        sticky="nsew"
+    )
+
+    parent.grid_columnconfigure(
+        column,
+        weight=1
+    )
+
+    title_label = ctk.CTkLabel(
+        card,
+        text=title,
+        font=ctk.CTkFont(size=14),
+        text_color="#777777"
+    )
+    title_label.pack(
+        anchor="w",
+        padx=18,
+        pady=(18, 3)
+    )
+
+    value_label = ctk.CTkLabel(
+        card,
+        text=value,
+        font=ctk.CTkFont(size=28, weight="bold"),
+        text_color="#222222"
+    )
+    value_label.pack(
+        anchor="w",
+        padx=18
+    )
+
+
+def get_total_employees():
+    try:
+        connection = database.get_connection()
+        cursor = connection.cursor()
+
+        cursor.execute(
+            "SELECT COUNT(*) FROM employees"
         )
 
-        self.grid_rowconfigure(
-            3,
-            weight=1
+        result = cursor.fetchone()
+
+        connection.close()
+
+        return result[0]
+
+    except Exception:
+        return 0
+
+
+def get_present_today():
+    try:
+        connection = database.get_connection()
+        cursor = connection.cursor()
+
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        cursor.execute(
+            """
+            SELECT COUNT(DISTINCT employee_id)
+            FROM attendance
+            WHERE date = ?
+            AND time_in IS NOT NULL
+            """,
+            (today,)
         )
 
-        self.create_ui()
+        result = cursor.fetchone()
 
-        self.update_dashboard()
-        self.update_clock()
+        connection.close()
 
-    # =====================================================
-    # UI
-    # =====================================================
+        return result[0]
 
-    def create_ui(self):
-        title = ctk.CTkLabel(
-            self,
-            text="Dashboard",
-            font=("Arial", 32, "bold")
+    except Exception:
+        return 0
+
+
+def get_late_today():
+    try:
+        connection = database.get_connection()
+        cursor = connection.cursor()
+
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        cursor.execute(
+            """
+            SELECT COUNT(*)
+            FROM attendance
+            WHERE date = ?
+            AND status = 'Late'
+            """,
+            (today,)
         )
 
-        title.grid(
-            row=0,
-            column=0,
-            sticky="w"
+        result = cursor.fetchone()
+
+        connection.close()
+
+        return result[0]
+
+    except Exception:
+        return 0
+
+
+def show_recent_attendance(parent):
+    try:
+        connection = database.get_connection()
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT
+                employees.name,
+                attendance.date,
+                attendance.time_in,
+                attendance.time_out,
+                attendance.status
+            FROM attendance
+            JOIN employees
+            ON attendance.employee_id = employees.id
+            ORDER BY attendance.id DESC
+            LIMIT 10
+            """
         )
 
-        self.clock_label = ctk.CTkLabel(
-            self,
-            text="",
-            font=("Arial", 16)
-        )
+        records = cursor.fetchall()
 
-        self.clock_label.grid(
-            row=1,
-            column=0,
-            sticky="w",
-            pady=(5, 20)
-        )
+        connection.close()
 
-        self.create_stat_cards()
+        # Table header
+        create_header(parent, "Employee", 0)
+        create_header(parent, "Date", 1)
+        create_header(parent, "Time In", 2)
+        create_header(parent, "Time Out", 3)
+        create_header(parent, "Status", 4)
 
-        self.create_recent_section()
+        for row, record in enumerate(records, start=1):
+            name = record[0]
+            date = record[1]
+            time_in = record[2]
+            time_out = record[3]
+            status = record[4]
 
-    def create_stat_cards(self):
-        self.stats_frame = ctk.CTkFrame(
-            self
-        )
-
-        self.stats_frame.grid(
-            row=2,
-            column=0,
-            sticky="ew",
-            pady=(0, 20)
-        )
-
-        for i in range(6):
-            self.stats_frame.grid_columnconfigure(
-                i,
-                weight=1
-            )
-
-        self.stat_values = []
-
-        labels = [
-            "Employees",
-            "Working Now",
-            "Today's Records",
-            "Completed",
-            "Hours Today",
-            "Late Today"
-        ]
-
-        for index, label in enumerate(labels):
-            card = ctk.CTkFrame(
-                self.stats_frame,
-                height=120
-            )
-
-            card.grid(
-                row=0,
-                column=index,
-                sticky="nsew",
-                padx=5,
-                pady=5
-            )
-
-            card.grid_propagate(False)
-
-            value = ctk.CTkLabel(
-                card,
-                text="0",
-                font=("Arial", 28, "bold")
-            )
-
-            value.pack(
-                pady=(20, 5)
-            )
-
-            ctk.CTkLabel(
-                card,
-                text=label,
-                font=("Arial", 12),
-                text_color="gray"
-            ).pack()
-
-            self.stat_values.append(
-                value
-            )
-
-    def create_recent_section(self):
-        self.recent_frame = ctk.CTkFrame(
-            self
-        )
-
-        self.recent_frame.grid(
-            row=3,
-            column=0,
-            sticky="nsew"
-        )
-
-        self.recent_frame.grid_columnconfigure(
-            0,
-            weight=1
-        )
-
-        self.recent_frame.grid_rowconfigure(
-            1,
-            weight=1
-        )
-
-        header = ctk.CTkFrame(
-            self.recent_frame,
-            fg_color="transparent"
-        )
-
-        header.grid(
-            row=0,
-            column=0,
-            sticky="ew",
-            padx=15,
-            pady=15
-        )
-
-        ctk.CTkLabel(
-            header,
-            text="Today's Attendance",
-            font=("Arial", 20, "bold")
-        ).pack(
-            side="left"
-        )
-
-        ctk.CTkButton(
-            header,
-            text="Open Attendance",
-            width=140,
-            command=self.open_attendance
-        ).pack(
-            side="right"
-        )
-
-        self.records_frame = ctk.CTkScrollableFrame(
-            self.recent_frame
-        )
-
-        self.records_frame.grid(
-            row=1,
-            column=0,
-            sticky="nsew",
-            padx=15,
-            pady=(0, 15)
-        )
-
-    # =====================================================
-    # UPDATE
-    # =====================================================
-
-    def update_dashboard(self):
-        stats = get_dashboard_stats()
-
-        values = [
-            stats["total_employees"],
-            stats["currently_working"],
-            stats["today_records"],
-            stats["completed"],
-            f"{stats['total_hours']:.2f}",
-            stats["late_count"]
-        ]
-
-        for label, value in zip(
-            self.stat_values,
-            values
-        ):
-            label.configure(
-                text=str(value)
-            )
-
-        self.load_recent_attendance()
-
-    def load_recent_attendance(self):
-        for widget in self.records_frame.winfo_children():
-            widget.destroy()
-
-        records = get_today_attendance()
+            create_cell(parent, name, row, 0)
+            create_cell(parent, date, row, 1)
+            create_cell(parent, time_in or "-", row, 2)
+            create_cell(parent, time_out or "-", row, 3)
+            create_cell(parent, status or "-", row, 4)
 
         if not records:
-            ctk.CTkLabel(
-                self.records_frame,
-                text="No attendance records for today.",
-                text_color="gray"
-            ).pack(
+            empty_label = ctk.CTkLabel(
+                parent,
+                text="No attendance records yet.",
+                font=ctk.CTkFont(size=14),
+                text_color="#777777"
+            )
+            empty_label.grid(
+                row=1,
+                column=0,
+                columnspan=5,
                 pady=30
             )
 
-            return
-
-        headers = [
-            "Employee ID",
-            "Name",
-            "Department",
-            "Clock In",
-            "Clock Out",
-            "Hours",
-            "Status"
-        ]
-
-        header = ctk.CTkFrame(
-            self.records_frame
+    except Exception as error:
+        error_label = ctk.CTkLabel(
+            parent,
+            text="Unable to load attendance records.",
+            font=ctk.CTkFont(size=14),
+            text_color="#777777"
         )
+        error_label.pack(pady=30)
 
-        header.pack(
-            fill="x",
-            pady=(0, 5)
-        )
 
-        for text in headers:
-            ctk.CTkLabel(
-                header,
-                text=text,
-                font=("Arial", 12, "bold")
-            ).pack(
-                side="left",
-                expand=True,
-                fill="x",
-                pady=10
-            )
+def create_header(parent, text, column):
+    label = ctk.CTkLabel(
+        parent,
+        text=text,
+        font=ctk.CTkFont(size=13, weight="bold"),
+        text_color="#555555"
+    )
 
-        for record in records:
-            row = ctk.CTkFrame(
-                self.records_frame
-            )
+    label.grid(
+        row=0,
+        column=column,
+        padx=10,
+        pady=10,
+        sticky="w"
+    )
 
-            row.pack(
-                fill="x",
-                pady=2
-            )
+    parent.grid_columnconfigure(
+        column,
+        weight=1
+    )
 
-            values = [
-                record["employee_id"],
-                record["name"],
-                record["department"],
-                self.format_time(record["clock_in"]),
-                self.format_time(record["clock_out"]),
-                (
-                    f"{record['total_hours']:.2f}"
-                    if record["total_hours"]
-                    else "--"
-                ),
-                record["status"]
-            ]
 
-            for value in values:
-                ctk.CTkLabel(
-                    row,
-                    text=value,
-                    font=("Arial", 11)
-                ).pack(
-                    side="left",
-                    expand=True,
-                    fill="x",
-                    pady=8
-                )
+def create_cell(parent, text, row, column):
+    label = ctk.CTkLabel(
+        parent,
+        text=str(text),
+        font=ctk.CTkFont(size=13),
+        text_color="#333333"
+    )
 
-    # =====================================================
-    # LIVE CLOCK
-    # =====================================================
-
-    def update_clock(self):
-        now = datetime.now()
-
-        self.clock_label.configure(
-            text=now.strftime(
-                "%A, %B %d, %Y  |  %I:%M:%S %p"
-            )
-        )
-
-        self.after(
-            1000,
-            self.update_clock
-        )
-
-    def format_time(self, value):
-        if not value:
-            return "--"
-
-        try:
-            time = datetime.strptime(
-                value,
-                "%H:%M:%S"
-            )
-
-            return time.strftime(
-                "%I:%M %p"
-            )
-
-        except ValueError:
-            return value
+    label.grid(
+        row=row,
+        column=column,
+        padx=10,
+        pady=8,
+        sticky="w"
+    )
