@@ -1,539 +1,180 @@
-import sqlite3
-from datetime import datetime
+import customtkinter as ctk
 
-DATABASE_NAME = "company_attendance.db"
-
-
-def connect_db():
-    connection = sqlite3.connect(DATABASE_NAME)
-    connection.row_factory = sqlite3.Row
-    return connection
+import database
+import dashboard
+import employees
+import attendance
+import reports
 
 
-def create_tables():
-    connection = connect_db()
-    cursor = connection.cursor()
+class AttendanceSystem:
+    def __init__(self):
+        self.root = ctk.CTk()
+        self.root.title("Employee Attendance System")
+        self.root.geometry("1100x700")
+        self.root.minsize(950, 600)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS employees (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            employee_id TEXT UNIQUE NOT NULL,
-            name TEXT NOT NULL,
-            department TEXT NOT NULL,
-            position TEXT NOT NULL
+        ctk.set_appearance_mode("light")
+        ctk.set_default_color_theme("blue")
+
+        # Create the database
+        database.create_tables()
+
+        self.create_layout()
+        self.show_dashboard()
+
+    def create_layout(self):
+        # Main container
+        self.main_frame = ctk.CTkFrame(
+            self.root,
+            corner_radius=0,
+            fg_color="#f5f5f5"
         )
-    """)
+        self.main_frame.pack(fill="both", expand=True)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS attendance (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            employee_id TEXT NOT NULL,
-            date TEXT NOT NULL,
-            clock_in TEXT,
-            clock_out TEXT,
-            total_hours REAL DEFAULT 0,
-            overtime_hours REAL DEFAULT 0,
-            status TEXT DEFAULT 'Present',
-            remarks TEXT DEFAULT ''
+        # Sidebar
+        self.sidebar = ctk.CTkFrame(
+            self.main_frame,
+            width=220,
+            corner_radius=0,
+            fg_color="#1f1f1f"
         )
-    """)
+        self.sidebar.pack(side="left", fill="y")
+        self.sidebar.pack_propagate(False)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS settings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            setting_name TEXT UNIQUE NOT NULL,
-            setting_value TEXT
+        # Title
+        self.title_label = ctk.CTkLabel(
+            self.sidebar,
+            text="ATTENDANCE\nSYSTEM",
+            font=ctk.CTkFont(size=22, weight="bold"),
+            text_color="white"
         )
-    """)
-
-    # Add new columns to older databases if they do not exist
-    add_column_if_missing(
-        cursor,
-        "attendance",
-        "overtime_hours",
-        "REAL DEFAULT 0"
-    )
-
-    add_column_if_missing(
-        cursor,
-        "attendance",
-        "status",
-        "TEXT DEFAULT 'Present'"
-    )
-
-    add_column_if_missing(
-        cursor,
-        "attendance",
-        "remarks",
-        "TEXT DEFAULT ''"
-    )
-
-    connection.commit()
-    connection.close()
-
-
-def add_column_if_missing(cursor, table_name, column_name, column_definition):
-    cursor.execute(f"PRAGMA table_info({table_name})")
-    columns = [row[1] for row in cursor.fetchall()]
-
-    if column_name not in columns:
-        cursor.execute(
-            f"ALTER TABLE {table_name} "
-            f"ADD COLUMN {column_name} {column_definition}"
+        self.title_label.pack(
+            padx=20,
+            pady=(35, 40)
         )
 
-
-# =========================================================
-# EMPLOYEE FUNCTIONS
-# =========================================================
-
-def add_employee(employee_id, name, department, position):
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    try:
-        cursor.execute("""
-            INSERT INTO employees
-            (employee_id, name, department, position)
-            VALUES (?, ?, ?, ?)
-        """, (
-            employee_id,
-            name,
-            department,
-            position
-        ))
-
-        connection.commit()
-        return True, "Employee added successfully."
-
-    except sqlite3.IntegrityError:
-        return False, "Employee ID already exists."
-
-    finally:
-        connection.close()
-
-
-def update_employee(employee_id, name, department, position):
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    cursor.execute("""
-        UPDATE employees
-        SET name = ?,
-            department = ?,
-            position = ?
-        WHERE employee_id = ?
-    """, (
-        name,
-        department,
-        position,
-        employee_id
-    ))
-
-    connection.commit()
-    changed = cursor.rowcount > 0
-    connection.close()
-
-    return changed
-
-
-def delete_employee(employee_id):
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    cursor.execute("""
-        DELETE FROM employees
-        WHERE employee_id = ?
-    """, (employee_id,))
-
-    connection.commit()
-    changed = cursor.rowcount > 0
-    connection.close()
-
-    return changed
-
-
-def get_employee(employee_id):
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    cursor.execute("""
-        SELECT *
-        FROM employees
-        WHERE employee_id = ?
-    """, (employee_id,))
-
-    employee = cursor.fetchone()
-    connection.close()
-
-    return employee
-
-
-def get_all_employees(search=""):
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    if search:
-        cursor.execute("""
-            SELECT *
-            FROM employees
-            WHERE employee_id LIKE ?
-               OR name LIKE ?
-               OR department LIKE ?
-               OR position LIKE ?
-            ORDER BY name
-        """, (
-            f"%{search}%",
-            f"%{search}%",
-            f"%{search}%",
-            f"%{search}%"
-        ))
-    else:
-        cursor.execute("""
-            SELECT *
-            FROM employees
-            ORDER BY name
-        """)
-
-    employees = cursor.fetchall()
-    connection.close()
-
-    return employees
-
-
-# =========================================================
-# ATTENDANCE FUNCTIONS
-# =========================================================
-
-def get_active_attendance(employee_id):
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    today = datetime.now().strftime("%Y-%m-%d")
-
-    cursor.execute("""
-        SELECT *
-        FROM attendance
-        WHERE employee_id = ?
-          AND date = ?
-          AND clock_out IS NULL
-        ORDER BY id DESC
-        LIMIT 1
-    """, (
-        employee_id,
-        today
-    ))
-
-    record = cursor.fetchone()
-    connection.close()
-
-    return record
-
-
-def clock_employee_in(employee_id):
-    employee = get_employee(employee_id)
-
-    if not employee:
-        return False, "Employee not found."
-
-    if get_active_attendance(employee_id):
-        return False, f"{employee['name']} is already clocked in."
-
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    now = datetime.now()
-    today = now.strftime("%Y-%m-%d")
-    current_time = now.strftime("%H:%M:%S")
-
-    # 9:00 AM is used as the default shift start time
-    shift_start = now.replace(
-        hour=9,
-        minute=0,
-        second=0,
-        microsecond=0
-    )
-
-    if now > shift_start:
-        status = "Late"
-        minutes_late = int(
-            (now - shift_start).total_seconds() / 60
+        # Navigation buttons
+        self.dashboard_button = ctk.CTkButton(
+            self.sidebar,
+            text="Dashboard",
+            height=45,
+            corner_radius=8,
+            command=self.show_dashboard
         )
-        remarks = f"{minutes_late} minute(s) late"
-    else:
-        status = "Present"
-        remarks = "On time"
-
-    cursor.execute("""
-        INSERT INTO attendance
-        (
-            employee_id,
-            date,
-            clock_in,
-            status,
-            remarks
+        self.dashboard_button.pack(
+            padx=20,
+            pady=5,
+            fill="x"
         )
-        VALUES (?, ?, ?, ?, ?)
-    """, (
-        employee_id,
-        today,
-        current_time,
-        status,
-        remarks
-    ))
 
-    connection.commit()
-    connection.close()
+        self.attendance_button = ctk.CTkButton(
+            self.sidebar,
+            text="Attendance",
+            height=45,
+            corner_radius=8,
+            command=self.show_attendance
+        )
+        self.attendance_button.pack(
+            padx=20,
+            pady=5,
+            fill="x"
+        )
 
-    return True, f"{employee['name']} clocked in successfully."
+        self.employees_button = ctk.CTkButton(
+            self.sidebar,
+            text="Employees",
+            height=45,
+            corner_radius=8,
+            command=self.show_employees
+        )
+        self.employees_button.pack(
+            padx=20,
+            pady=5,
+            fill="x"
+        )
 
+        self.reports_button = ctk.CTkButton(
+            self.sidebar,
+            text="Reports",
+            height=45,
+            corner_radius=8,
+            command=self.show_reports
+        )
+        self.reports_button.pack(
+            padx=20,
+            pady=5,
+            fill="x"
+        )
 
-def clock_employee_out(employee_id):
-    employee = get_employee(employee_id)
+        # Exit button
+        self.exit_button = ctk.CTkButton(
+            self.sidebar,
+            text="Exit",
+            height=45,
+            corner_radius=8,
+            fg_color="#444444",
+            hover_color="#333333",
+            command=self.exit_application
+        )
+        self.exit_button.pack(
+            side="bottom",
+            padx=20,
+            pady=25,
+            fill="x"
+        )
 
-    if not employee:
-        return False, "Employee not found.", 0
+        # Content area
+        self.content_frame = ctk.CTkFrame(
+            self.main_frame,
+            corner_radius=0,
+            fg_color="#f5f5f5"
+        )
+        self.content_frame.pack(
+            side="right",
+            fill="both",
+            expand=True
+        )
 
-    record = get_active_attendance(employee_id)
+    def clear_content(self):
+        for widget in self.content_frame.winfo_children():
+            widget.destroy()
 
-    if not record:
-        return False, f"{employee['name']} is not clocked in.", 0
+    def show_dashboard(self):
+        self.clear_content()
 
-    now = datetime.now()
+        dashboard.show_dashboard(
+            self.content_frame
+        )
 
-    clock_in_datetime = datetime.strptime(
-        f"{record['date']} {record['clock_in']}",
-        "%Y-%m-%d %H:%M:%S"
-    )
+    def show_attendance(self):
+        self.clear_content()
 
-    difference = now - clock_in_datetime
+        attendance.show_attendance(
+            self.content_frame
+        )
 
-    total_hours = difference.total_seconds() / 3600
+    def show_employees(self):
+        self.clear_content()
 
-    overtime_hours = max(
-        0,
-        total_hours - 8
-    )
+        employees.show_employees(
+            self.content_frame
+        )
 
-    connection = connect_db()
-    cursor = connection.cursor()
+    def show_reports(self):
+        self.clear_content()
 
-    cursor.execute("""
-        UPDATE attendance
-        SET clock_out = ?,
-            total_hours = ?,
-            overtime_hours = ?
-        WHERE id = ?
-    """, (
-        now.strftime("%H:%M:%S"),
-        round(total_hours, 2),
-        round(overtime_hours, 2),
-        record["id"]
-    ))
+        reports.show_reports(
+            self.content_frame
+        )
 
-    connection.commit()
-    connection.close()
+    def exit_application(self):
+        self.root.destroy()
 
-    return (
-        True,
-        f"{employee['name']} clocked out successfully.",
-        round(total_hours, 2)
-    )
-
-
-def get_attendance(search="", selected_date="", status="All"):
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    query = """
-        SELECT
-            attendance.id,
-            attendance.employee_id,
-            employees.name,
-            employees.department,
-            employees.position,
-            attendance.date,
-            attendance.clock_in,
-            attendance.clock_out,
-            attendance.total_hours,
-            attendance.overtime_hours,
-            attendance.status,
-            attendance.remarks
-        FROM attendance
-        JOIN employees
-        ON attendance.employee_id = employees.employee_id
-        WHERE 1 = 1
-    """
-
-    parameters = []
-
-    if search:
-        query += """
-            AND (
-                attendance.employee_id LIKE ?
-                OR employees.name LIKE ?
-                OR employees.department LIKE ?
-            )
-        """
-
-        search_value = f"%{search}%"
-
-        parameters.extend([
-            search_value,
-            search_value,
-            search_value
-        ])
-
-    if selected_date:
-        query += " AND attendance.date = ?"
-        parameters.append(selected_date)
-
-    if status != "All":
-        query += " AND attendance.status = ?"
-        parameters.append(status)
-
-    query += " ORDER BY attendance.id DESC"
-
-    cursor.execute(
-        query,
-        parameters
-    )
-
-    records = cursor.fetchall()
-    connection.close()
-
-    return records
+    def run(self):
+        self.root.mainloop()
 
 
-def get_today_attendance():
-    today = datetime.now().strftime("%Y-%m-%d")
-
-    return get_attendance(
-        selected_date=today
-    )
-
-
-# =========================================================
-# DASHBOARD STATISTICS
-# =========================================================
-
-def get_dashboard_stats():
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    today = datetime.now().strftime("%Y-%m-%d")
-
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM employees
-    """)
-
-    total_employees = cursor.fetchone()[0]
-
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM attendance
-        WHERE date = ?
-          AND clock_out IS NULL
-    """, (today,))
-
-    currently_working = cursor.fetchone()[0]
-
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM attendance
-        WHERE date = ?
-    """, (today,))
-
-    today_records = cursor.fetchone()[0]
-
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM attendance
-        WHERE date = ?
-          AND clock_out IS NOT NULL
-    """, (today,))
-
-    completed = cursor.fetchone()[0]
-
-    cursor.execute("""
-        SELECT COALESCE(SUM(total_hours), 0)
-        FROM attendance
-        WHERE date = ?
-    """, (today,))
-
-    total_hours = cursor.fetchone()[0]
-
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM attendance
-        WHERE date = ?
-          AND status = 'Late'
-    """, (today,))
-
-    late_count = cursor.fetchone()[0]
-
-    connection.close()
-
-    return {
-        "total_employees": total_employees,
-        "currently_working": currently_working,
-        "today_records": today_records,
-        "completed": completed,
-        "total_hours": total_hours,
-        "late_count": late_count
-    }
-
-
-# =========================================================
-# REPORT FUNCTIONS
-# =========================================================
-
-def get_employee_summary(employee_id):
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    cursor.execute("""
-        SELECT
-            COUNT(*) AS total_days,
-            COALESCE(SUM(total_hours), 0) AS total_hours,
-            COALESCE(SUM(overtime_hours), 0) AS overtime_hours,
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN status = 'Late'
-                        THEN 1
-                        ELSE 0
-                    END
-                ),
-                0
-            ) AS late_count
-        FROM attendance
-        WHERE employee_id = ?
-    """, (employee_id,))
-
-    result = cursor.fetchone()
-    connection.close()
-
-    return result
-
-
-def get_monthly_summary(year, month):
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    month_text = f"{year}-{month:02d}"
-
-    cursor.execute("""
-        SELECT
-            COUNT(*) AS total_records,
-            COALESCE(SUM(total_hours), 0) AS total_hours,
-            COALESCE(SUM(overtime_hours), 0) AS overtime_hours
-        FROM attendance
-        WHERE date LIKE ?
-    """, (f"{month_text}-%",))
-
-    result = cursor.fetchone()
-    connection.close()
-
-    return result
+if __name__ == "__main__":
+    app = AttendanceSystem()
+    app.run()
