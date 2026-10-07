@@ -1,430 +1,622 @@
 import customtkinter as ctk
-from tkinter import messagebox, filedialog
+from tkinter import messagebox
 from datetime import datetime
-import csv
-
-from database import (
-    get_attendance,
-    get_monthly_summary,
-    get_employee_summary,
-    get_all_employees
-)
+import database
 
 
-class ReportsPage(ctk.CTkFrame):
-    def __init__(self, parent):
-        super().__init__(parent)
+def show_reports(parent):
+    reports_frame = ctk.CTkFrame(
+        parent,
+        fg_color="#f5f5f5",
+        corner_radius=0
+    )
+    reports_frame.pack(
+        fill="both",
+        expand=True
+    )
 
-        self.grid_columnconfigure(
-            0,
-            weight=1
+    # Header
+    header_frame = ctk.CTkFrame(
+        reports_frame,
+        fg_color="transparent"
+    )
+    header_frame.pack(
+        fill="x",
+        padx=30,
+        pady=(25, 15)
+    )
+
+    title = ctk.CTkLabel(
+        header_frame,
+        text="Attendance Reports",
+        font=ctk.CTkFont(
+            size=30,
+            weight="bold"
+        ),
+        text_color="#222222"
+    )
+    title.pack(side="left")
+
+    # Filter section
+    filter_frame = ctk.CTkFrame(
+        reports_frame,
+        fg_color="white",
+        corner_radius=12
+    )
+    filter_frame.pack(
+        fill="x",
+        padx=30,
+        pady=(0, 15)
+    )
+
+    filter_title = ctk.CTkLabel(
+        filter_frame,
+        text="Report Filters",
+        font=ctk.CTkFont(
+            size=18,
+            weight="bold"
+        ),
+        text_color="#222222"
+    )
+    filter_title.pack(
+        anchor="w",
+        padx=20,
+        pady=(15, 10)
+    )
+
+    controls_frame = ctk.CTkFrame(
+        filter_frame,
+        fg_color="transparent"
+    )
+    controls_frame.pack(
+        fill="x",
+        padx=20,
+        pady=(0, 20)
+    )
+
+    # Start date
+    start_label = ctk.CTkLabel(
+        controls_frame,
+        text="Start Date",
+        font=ctk.CTkFont(size=13),
+        text_color="#555555"
+    )
+    start_label.grid(
+        row=0,
+        column=0,
+        padx=(0, 8),
+        sticky="w"
+    )
+
+    start_entry = ctk.CTkEntry(
+        controls_frame,
+        width=130,
+        height=38,
+        placeholder_text="YYYY-MM-DD"
+    )
+    start_entry.grid(
+        row=1,
+        column=0,
+        padx=(0, 15),
+        pady=(5, 0)
+    )
+
+    # End date
+    end_label = ctk.CTkLabel(
+        controls_frame,
+        text="End Date",
+        font=ctk.CTkFont(size=13),
+        text_color="#555555"
+    )
+    end_label.grid(
+        row=0,
+        column=1,
+        padx=(0, 8),
+        sticky="w"
+    )
+
+    end_entry = ctk.CTkEntry(
+        controls_frame,
+        width=130,
+        height=38,
+        placeholder_text="YYYY-MM-DD"
+    )
+    end_entry.grid(
+        row=1,
+        column=1,
+        padx=(0, 15),
+        pady=(5, 0)
+    )
+
+    # Employee filter
+    employee_label = ctk.CTkLabel(
+        controls_frame,
+        text="Employee",
+        font=ctk.CTkFont(size=13),
+        text_color="#555555"
+    )
+    employee_label.grid(
+        row=0,
+        column=2,
+        padx=(0, 8),
+        sticky="w"
+    )
+
+    employees = get_employees()
+
+    employee_values = ["All Employees"]
+
+    for employee in employees:
+        employee_values.append(
+            f"{employee[0]} - {employee[1]}"
         )
 
-        self.grid_rowconfigure(
-            3,
-            weight=1
+    employee_dropdown = ctk.CTkComboBox(
+        controls_frame,
+        values=employee_values,
+        width=200,
+        height=38
+    )
+    employee_dropdown.set("All Employees")
+    employee_dropdown.grid(
+        row=1,
+        column=2,
+        padx=(0, 15),
+        pady=(5, 0)
+    )
+
+    # Generate button
+    generate_button = ctk.CTkButton(
+        controls_frame,
+        text="Generate Report",
+        width=140,
+        height=38,
+        command=lambda: generate_report(
+            report_table,
+            summary_frame,
+            start_entry.get(),
+            end_entry.get(),
+            employee_dropdown.get()
+        )
+    )
+    generate_button.grid(
+        row=1,
+        column=3,
+        padx=5,
+        pady=(5, 0)
+    )
+
+    # Today button
+    today_button = ctk.CTkButton(
+        controls_frame,
+        text="Today",
+        width=80,
+        height=38,
+        fg_color="#555555",
+        hover_color="#444444",
+        command=lambda: load_today(
+            start_entry,
+            end_entry,
+            report_table,
+            summary_frame,
+            employee_dropdown
+        )
+    )
+    today_button.grid(
+        row=1,
+        column=4,
+        padx=5,
+        pady=(5, 0)
+    )
+
+    # Summary
+    summary_frame = ctk.CTkFrame(
+        reports_frame,
+        fg_color="transparent"
+    )
+    summary_frame.pack(
+        fill="x",
+        padx=30,
+        pady=(0, 15)
+    )
+
+    # Report table
+    table_container = ctk.CTkFrame(
+        reports_frame,
+        fg_color="white",
+        corner_radius=12
+    )
+    table_container.pack(
+        fill="both",
+        expand=True,
+        padx=30,
+        pady=(0, 25)
+    )
+
+    report_table = ctk.CTkScrollableFrame(
+        table_container,
+        fg_color="white"
+    )
+    report_table.pack(
+        fill="both",
+        expand=True,
+        padx=10,
+        pady=10
+    )
+
+    # Automatically show today's records
+    load_today(
+        start_entry,
+        end_entry,
+        report_table,
+        summary_frame,
+        employee_dropdown
+    )
+
+
+def get_employees():
+    try:
+        connection = database.get_connection()
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT id, name
+            FROM employees
+            ORDER BY name
+            """
         )
 
-        self.create_ui()
+        employees = cursor.fetchall()
 
-        self.load_report()
+        connection.close()
 
-    # =====================================================
-    # UI
-    # =====================================================
+        return employees
 
-    def create_ui(self):
-        title = ctk.CTkLabel(
-            self,
-            text="Attendance Reports",
-            font=("Arial", 30, "bold")
+    except Exception:
+        return []
+
+
+def load_today(
+    start_entry,
+    end_entry,
+    report_table,
+    summary_frame,
+    employee_dropdown
+):
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    start_entry.delete(0, "end")
+    start_entry.insert(0, today)
+
+    end_entry.delete(0, "end")
+    end_entry.insert(0, today)
+
+    employee_dropdown.set("All Employees")
+
+    generate_report(
+        report_table,
+        summary_frame,
+        today,
+        today,
+        "All Employees"
+    )
+
+
+def generate_report(
+    report_table,
+    summary_frame,
+    start_date,
+    end_date,
+    selected_employee
+):
+    # Validate dates
+    try:
+        start = datetime.strptime(
+            start_date,
+            "%Y-%m-%d"
         )
 
-        title.grid(
-            row=0,
-            column=0,
-            sticky="w",
-            pady=(0, 20)
+        end = datetime.strptime(
+            end_date,
+            "%Y-%m-%d"
         )
 
-        controls = ctk.CTkFrame(
-            self
+    except ValueError:
+        messagebox.showwarning(
+            "Invalid Date",
+            "Please enter dates using YYYY-MM-DD."
         )
+        return
 
-        controls.grid(
-            row=1,
-            column=0,
-            sticky="ew",
-            pady=(0, 15)
+    if start > end:
+        messagebox.showwarning(
+            "Invalid Date Range",
+            "Start date cannot be after the end date."
         )
+        return
 
-        ctk.CTkLabel(
-            controls,
-            text="Year:"
-        ).pack(
-            side="left",
-            padx=(15, 5),
-            pady=15
-        )
+    # Clear old table
+    for widget in report_table.winfo_children():
+        widget.destroy()
 
-        self.year = ctk.CTkEntry(
-            controls,
-            width=100
-        )
+    # Clear old summary
+    for widget in summary_frame.winfo_children():
+        widget.destroy()
 
-        self.year.pack(
-            side="left",
-            padx=5
-        )
+    try:
+        connection = database.get_connection()
+        cursor = connection.cursor()
 
-        self.year.insert(
-            0,
-            str(datetime.now().year)
-        )
+        query = """
+            SELECT
+                attendance.id,
+                employees.name,
+                attendance.date,
+                attendance.time_in,
+                attendance.time_out,
+                attendance.status
+            FROM attendance
+            JOIN employees
+            ON attendance.employee_id = employees.id
+            WHERE attendance.date BETWEEN ? AND ?
+        """
 
-        ctk.CTkLabel(
-            controls,
-            text="Month:"
-        ).pack(
-            side="left",
-            padx=(15, 5)
-        )
-
-        self.month = ctk.CTkComboBox(
-            controls,
-            values=[
-                "1", "2", "3", "4",
-                "5", "6", "7", "8",
-                "9", "10", "11", "12"
-            ],
-            width=80
-        )
-
-        self.month.pack(
-            side="left",
-            padx=5
-        )
-
-        self.month.set(
-            str(datetime.now().month)
-        )
-
-        ctk.CTkButton(
-            controls,
-            text="GENERATE",
-            command=self.load_report
-        ).pack(
-            side="left",
-            padx=10
-        )
-
-        ctk.CTkButton(
-            controls,
-            text="EXPORT CSV",
-            command=self.export_csv
-        ).pack(
-            side="right",
-            padx=15
-        )
-
-        self.summary_frame = ctk.CTkFrame(
-            self
-        )
-
-        self.summary_frame.grid(
-            row=2,
-            column=0,
-            sticky="ew",
-            pady=(0, 15)
-        )
-
-        self.report_area = ctk.CTkScrollableFrame(
-            self
-        )
-
-        self.report_area.grid(
-            row=3,
-            column=0,
-            sticky="nsew"
-        )
-
-    # =====================================================
-    # REPORT
-    # =====================================================
-
-    def load_report(self):
-        for widget in self.summary_frame.winfo_children():
-            widget.destroy()
-
-        for widget in self.report_area.winfo_children():
-            widget.destroy()
-
-        try:
-            year = int(
-                self.year.get()
-            )
-
-            month = int(
-                self.month.get()
-            )
-
-        except ValueError:
-            messagebox.showerror(
-                "Invalid Date",
-                "Please enter a valid year and month."
-            )
-
-            return
-
-        summary = get_monthly_summary(
-            year,
-            month
-        )
-
-        cards = [
-            (
-                "Attendance Records",
-                summary["total_records"]
-            ),
-            (
-                "Total Hours",
-                f"{summary['total_hours']:.2f}"
-            ),
-            (
-                "Overtime Hours",
-                f"{summary['overtime_hours']:.2f}"
-            )
+        parameters = [
+            start_date,
+            end_date
         ]
 
-        for index, (label, value) in enumerate(cards):
-            self.summary_frame.grid_columnconfigure(
-                index,
+        # Employee filter
+        if selected_employee != "All Employees":
+            try:
+                employee_id = int(
+                    selected_employee.split(" - ")[0]
+                )
+
+                query += " AND attendance.employee_id = ?"
+
+                parameters.append(employee_id)
+
+            except ValueError:
+                pass
+
+        query += """
+            ORDER BY attendance.date DESC,
+                     attendance.id DESC
+        """
+
+        cursor.execute(
+            query,
+            parameters
+        )
+
+        records = cursor.fetchall()
+
+        connection.close()
+
+        # Calculate summary
+        total_records = len(records)
+
+        present_count = 0
+        late_count = 0
+        completed_count = 0
+
+        for record in records:
+            status = record[5]
+
+            if status == "Present":
+                present_count += 1
+
+            elif status == "Late":
+                late_count += 1
+
+            if record[4]:
+                completed_count += 1
+
+        # Summary cards
+        create_summary_card(
+            summary_frame,
+            "Total Records",
+            total_records,
+            0
+        )
+
+        create_summary_card(
+            summary_frame,
+            "Present",
+            present_count,
+            1
+        )
+
+        create_summary_card(
+            summary_frame,
+            "Late",
+            late_count,
+            2
+        )
+
+        create_summary_card(
+            summary_frame,
+            "Completed",
+            completed_count,
+            3
+        )
+
+        # Table headers
+        headers = [
+            "ID",
+            "Employee",
+            "Date",
+            "Time In",
+            "Time Out",
+            "Status"
+        ]
+
+        for column, header in enumerate(headers):
+            label = ctk.CTkLabel(
+                report_table,
+                text=header,
+                font=ctk.CTkFont(
+                    size=13,
+                    weight="bold"
+                ),
+                text_color="#555555"
+            )
+
+            label.grid(
+                row=0,
+                column=column,
+                padx=10,
+                pady=12,
+                sticky="w"
+            )
+
+            report_table.grid_columnconfigure(
+                column,
                 weight=1
             )
 
-            card = ctk.CTkFrame(
-                self.summary_frame
+        # Records
+        for row, record in enumerate(
+            records,
+            start=1
+        ):
+            create_cell(
+                report_table,
+                record[0],
+                row,
+                0
             )
 
-            card.grid(
-                row=0,
-                column=index,
-                sticky="ew",
-                padx=5,
-                pady=5
+            create_cell(
+                report_table,
+                record[1],
+                row,
+                1
             )
 
-            ctk.CTkLabel(
-                card,
-                text=str(value),
-                font=("Arial", 25, "bold")
-            ).pack(
-                pady=(15, 5)
+            create_cell(
+                report_table,
+                record[2],
+                row,
+                2
             )
 
-            ctk.CTkLabel(
-                card,
-                text=label,
-                text_color="gray"
-            ).pack(
-                pady=(0, 15)
+            create_cell(
+                report_table,
+                record[3] or "-",
+                row,
+                3
             )
 
-        records = get_attendance(
-            selected_date=""
+            create_cell(
+                report_table,
+                record[4] or "-",
+                row,
+                4
+            )
+
+            create_cell(
+                report_table,
+                record[5],
+                row,
+                5
+            )
+
+        if not records:
+            empty_label = ctk.CTkLabel(
+                report_table,
+                text="No attendance records found.",
+                font=ctk.CTkFont(size=15),
+                text_color="#777777"
+            )
+
+            empty_label.grid(
+                row=1,
+                column=0,
+                columnspan=6,
+                pady=40
+            )
+
+    except Exception as error:
+        messagebox.showerror(
+            "Database Error",
+            str(error)
         )
 
-        month_records = [
-            record
-            for record in records
-            if record["date"].startswith(
-                f"{year}-{month:02d}-"
-            )
-        ]
 
-        title = ctk.CTkLabel(
-            self.report_area,
-            text=f"Employee Summary - {year}-{month:02d}",
-            font=("Arial", 20, "bold")
-        )
+def create_summary_card(
+    parent,
+    title,
+    value,
+    column
+):
+    card = ctk.CTkFrame(
+        parent,
+        fg_color="white",
+        corner_radius=10,
+        height=80
+    )
 
-        title.pack(
-            anchor="w",
-            pady=(10, 20)
-        )
+    card.grid(
+        row=0,
+        column=column,
+        padx=5,
+        sticky="nsew"
+    )
 
-        employees = get_all_employees()
+    parent.grid_columnconfigure(
+        column,
+        weight=1
+    )
 
-        for employee in employees:
-            employee_summary = get_employee_summary(
-                employee["employee_id"]
-            )
+    title_label = ctk.CTkLabel(
+        card,
+        text=title,
+        font=ctk.CTkFont(size=12),
+        text_color="#777777"
+    )
 
-            employee_records = [
-                record
-                for record in month_records
-                if record["employee_id"]
-                == employee["employee_id"]
-            ]
+    title_label.pack(
+        anchor="w",
+        padx=15,
+        pady=(12, 0)
+    )
 
-            if not employee_records:
-                continue
+    value_label = ctk.CTkLabel(
+        card,
+        text=str(value),
+        font=ctk.CTkFont(
+            size=22,
+            weight="bold"
+        ),
+        text_color="#222222"
+    )
 
-            card = ctk.CTkFrame(
-                self.report_area
-            )
+    value_label.pack(
+        anchor="w",
+        padx=15
+    )
 
-            card.pack(
-                fill="x",
-                pady=5
-            )
 
-            ctk.CTkLabel(
-                card,
-                text=(
-                    f"{employee['employee_id']}  |  "
-                    f"{employee['name']}"
-                ),
-                font=("Arial", 14, "bold")
-            ).pack(
-                anchor="w",
-                padx=15,
-                pady=(12, 5)
-            )
+def create_cell(
+    parent,
+    text,
+    row,
+    column
+):
+    label = ctk.CTkLabel(
+        parent,
+        text=str(text) if text else "-",
+        font=ctk.CTkFont(size=13),
+        text_color="#333333"
+    )
 
-            ctk.CTkLabel(
-                card,
-                text=(
-                    f"Department: {employee['department']}    "
-                    f"Position: {employee['position']}"
-                ),
-                text_color="gray"
-            ).pack(
-                anchor="w",
-                padx=15
-            )
-
-            ctk.CTkLabel(
-                card,
-                text=(
-                    f"Days Recorded: {len(employee_records)}    "
-                    f"Total Hours: "
-                    f"{sum((r['total_hours'] or 0) for r in employee_records):.2f}    "
-                    f"Overtime: "
-                    f"{sum((r['overtime_hours'] or 0) for r in employee_records):.2f}"
-                )
-            ).pack(
-                anchor="w",
-                padx=15,
-                pady=(5, 12)
-            )
-
-        if not month_records:
-            ctk.CTkLabel(
-                self.report_area,
-                text="No records found for this month.",
-                text_color="gray"
-            ).pack(
-                pady=30
-            )
-
-    # =====================================================
-    # EXPORT CSV
-    # =====================================================
-
-    def export_csv(self):
-        try:
-            year = int(
-                self.year.get()
-            )
-
-            month = int(
-                self.month.get()
-            )
-
-        except ValueError:
-            messagebox.showerror(
-                "Error",
-                "Invalid year or month."
-            )
-
-            return
-
-        records = get_attendance()
-
-        month_records = [
-            record
-            for record in records
-            if record["date"].startswith(
-                f"{year}-{month:02d}-"
-            )
-        ]
-
-        if not month_records:
-            messagebox.showwarning(
-                "No Data",
-                "There are no attendance records to export."
-            )
-
-            return
-
-        file_path = filedialog.asksaveasfilename(
-            defaultextension=".csv",
-            filetypes=[
-                (
-                    "CSV Files",
-                    "*.csv"
-                )
-            ],
-            initialfile=(
-                f"attendance_{year}_{month:02d}.csv"
-            )
-        )
-
-        if not file_path:
-            return
-
-        with open(
-            file_path,
-            "w",
-            newline="",
-            encoding="utf-8"
-        ) as file:
-
-            writer = csv.writer(
-                file
-            )
-
-            writer.writerow([
-                "Employee ID",
-                "Name",
-                "Department",
-                "Position",
-                "Date",
-                "Clock In",
-                "Clock Out",
-                "Total Hours",
-                "Overtime Hours",
-                "Status",
-                "Remarks"
-            ])
-
-            for record in month_records:
-                writer.writerow([
-                    record["employee_id"],
-                    record["name"],
-                    record["department"],
-                    record["position"],
-                    record["date"],
-                    record["clock_in"],
-                    record["clock_out"],
-                    record["total_hours"],
-                    record["overtime_hours"],
-                    record["status"],
-                    record["remarks"]
-                ])
-
-        messagebox.showinfo(
-            "Export Complete",
-            "Attendance report exported successfully."
-        )
+    label.grid(
+        row=row,
+        column=column,
+        padx=10,
+        pady=8,
+        sticky="w"
+    )
