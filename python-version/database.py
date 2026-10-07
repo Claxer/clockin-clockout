@@ -1,539 +1,398 @@
 import sqlite3
-from datetime import datetime
+from pathlib import Path
+from datetime import datetime, date
 
-DATABASE_NAME = "company_attendance.db"
+
+DB_FILE = Path(__file__).with_name("attendance.db")
 
 
-def connect_db():
-    connection = sqlite3.connect(DATABASE_NAME)
+def get_connection():
+    connection = sqlite3.connect(DB_FILE)
     connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys = ON")
     return connection
 
 
 def create_tables():
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    cursor.execute("""
+    with get_connection() as connection:
+        connection.executescript("""
         CREATE TABLE IF NOT EXISTS employees (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            employee_id TEXT UNIQUE NOT NULL,
-            name TEXT NOT NULL,
+            employee_id TEXT PRIMARY KEY,
+            full_name TEXT NOT NULL,
             department TEXT NOT NULL,
-            position TEXT NOT NULL
-        )
-    """)
+            position TEXT NOT NULL,
+            email TEXT DEFAULT '',
+            phone TEXT DEFAULT '',
+            date_hired TEXT DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'Active',
+            created_at TEXT NOT NULL
+        );
 
-    cursor.execute("""
         CREATE TABLE IF NOT EXISTS attendance (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             employee_id TEXT NOT NULL,
-            date TEXT NOT NULL,
-            clock_in TEXT,
+            work_date TEXT NOT NULL,
+            clock_in TEXT NOT NULL,
             clock_out TEXT,
             total_hours REAL DEFAULT 0,
-            overtime_hours REAL DEFAULT 0,
-            status TEXT DEFAULT 'Present',
-            remarks TEXT DEFAULT ''
-        )
-    """)
+            status TEXT NOT NULL DEFAULT 'Present',
+            notes TEXT DEFAULT '',
+            FOREIGN KEY (employee_id)
+                REFERENCES employees(employee_id)
+                ON DELETE CASCADE
+        );
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS settings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            setting_name TEXT UNIQUE NOT NULL,
-            setting_value TEXT
-        )
-    """)
+        CREATE INDEX IF NOT EXISTS idx_attendance_date
+        ON attendance(work_date);
 
-    # Add new columns to older databases if they do not exist
-    add_column_if_missing(
-        cursor,
-        "attendance",
-        "overtime_hours",
-        "REAL DEFAULT 0"
-    )
-
-    add_column_if_missing(
-        cursor,
-        "attendance",
-        "status",
-        "TEXT DEFAULT 'Present'"
-    )
-
-    add_column_if_missing(
-        cursor,
-        "attendance",
-        "remarks",
-        "TEXT DEFAULT ''"
-    )
-
-    connection.commit()
-    connection.close()
+        CREATE INDEX IF NOT EXISTS idx_attendance_employee
+        ON attendance(employee_id);
+        """)
 
 
-def add_column_if_missing(cursor, table_name, column_name, column_definition):
-    cursor.execute(f"PRAGMA table_info({table_name})")
-    columns = [row[1] for row in cursor.fetchall()]
-
-    if column_name not in columns:
-        cursor.execute(
-            f"ALTER TABLE {table_name} "
-            f"ADD COLUMN {column_name} {column_definition}"
-        )
-
-
-# =========================================================
-# EMPLOYEE FUNCTIONS
-# =========================================================
-
-def add_employee(employee_id, name, department, position):
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    try:
-        cursor.execute("""
+def add_employee(
+    employee_id,
+    full_name,
+    department,
+    position,
+    email="",
+    phone="",
+    date_hired=""
+):
+    with get_connection() as connection:
+        connection.execute("""
             INSERT INTO employees
-            (employee_id, name, department, position)
-            VALUES (?, ?, ?, ?)
+            (
+                employee_id,
+                full_name,
+                department,
+                position,
+                email,
+                phone,
+                date_hired,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            employee_id,
-            name,
-            department,
-            position
+            employee_id.strip(),
+            full_name.strip(),
+            department.strip(),
+            position.strip(),
+            email.strip(),
+            phone.strip(),
+            date_hired.strip(),
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         ))
 
-        connection.commit()
-        return True, "Employee added successfully."
 
-    except sqlite3.IntegrityError:
-        return False, "Employee ID already exists."
-
-    finally:
-        connection.close()
-
-
-def update_employee(employee_id, name, department, position):
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    cursor.execute("""
-        UPDATE employees
-        SET name = ?,
-            department = ?,
-            position = ?
-        WHERE employee_id = ?
-    """, (
-        name,
-        department,
-        position,
-        employee_id
-    ))
-
-    connection.commit()
-    changed = cursor.rowcount > 0
-    connection.close()
-
-    return changed
+def update_employee(
+    employee_id,
+    full_name,
+    department,
+    position,
+    email="",
+    phone="",
+    date_hired="",
+    status="Active"
+):
+    with get_connection() as connection:
+        connection.execute("""
+            UPDATE employees
+            SET
+                full_name=?,
+                department=?,
+                position=?,
+                email=?,
+                phone=?,
+                date_hired=?,
+                status=?
+            WHERE employee_id=?
+        """, (
+            full_name.strip(),
+            department.strip(),
+            position.strip(),
+            email.strip(),
+            phone.strip(),
+            date_hired.strip(),
+            status,
+            employee_id
+        ))
 
 
 def delete_employee(employee_id):
-    connection = connect_db()
-    cursor = connection.cursor()
+    with get_connection() as connection:
+        connection.execute(
+            "DELETE FROM employees WHERE employee_id=?",
+            (employee_id,)
+        )
 
-    cursor.execute("""
-        DELETE FROM employees
-        WHERE employee_id = ?
-    """, (employee_id,))
 
-    connection.commit()
-    changed = cursor.rowcount > 0
-    connection.close()
+def get_employees(search=""):
+    with get_connection() as connection:
+        if search.strip():
+            value = f"%{search.strip()}%"
 
-    return changed
+            return connection.execute("""
+                SELECT *
+                FROM employees
+                WHERE employee_id LIKE ?
+                   OR full_name LIKE ?
+                   OR department LIKE ?
+                   OR position LIKE ?
+                ORDER BY full_name
+            """, (
+                value,
+                value,
+                value,
+                value
+            )).fetchall()
+
+        return connection.execute("""
+            SELECT *
+            FROM employees
+            ORDER BY full_name
+        """).fetchall()
 
 
 def get_employee(employee_id):
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    cursor.execute("""
-        SELECT *
-        FROM employees
-        WHERE employee_id = ?
-    """, (employee_id,))
-
-    employee = cursor.fetchone()
-    connection.close()
-
-    return employee
-
-
-def get_all_employees(search=""):
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    if search:
-        cursor.execute("""
+    with get_connection() as connection:
+        return connection.execute("""
             SELECT *
             FROM employees
-            WHERE employee_id LIKE ?
-               OR name LIKE ?
-               OR department LIKE ?
-               OR position LIKE ?
-            ORDER BY name
+            WHERE employee_id=?
+        """, (employee_id,)).fetchone()
+
+
+def clock_in(employee_id):
+    today = date.today().isoformat()
+    now = datetime.now().strftime("%H:%M:%S")
+
+    with get_connection() as connection:
+        existing = connection.execute("""
+            SELECT id, clock_out
+            FROM attendance
+            WHERE employee_id=?
+              AND work_date=?
+            ORDER BY id DESC
+            LIMIT 1
         """, (
-            f"%{search}%",
-            f"%{search}%",
-            f"%{search}%",
-            f"%{search}%"
-        ))
-    else:
-        cursor.execute("""
-            SELECT *
-            FROM employees
-            ORDER BY name
-        """)
-
-    employees = cursor.fetchall()
-    connection.close()
-
-    return employees
-
-
-# =========================================================
-# ATTENDANCE FUNCTIONS
-# =========================================================
-
-def get_active_attendance(employee_id):
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    today = datetime.now().strftime("%Y-%m-%d")
-
-    cursor.execute("""
-        SELECT *
-        FROM attendance
-        WHERE employee_id = ?
-          AND date = ?
-          AND clock_out IS NULL
-        ORDER BY id DESC
-        LIMIT 1
-    """, (
-        employee_id,
-        today
-    ))
-
-    record = cursor.fetchone()
-    connection.close()
-
-    return record
-
-
-def clock_employee_in(employee_id):
-    employee = get_employee(employee_id)
-
-    if not employee:
-        return False, "Employee not found."
-
-    if get_active_attendance(employee_id):
-        return False, f"{employee['name']} is already clocked in."
-
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    now = datetime.now()
-    today = now.strftime("%Y-%m-%d")
-    current_time = now.strftime("%H:%M:%S")
-
-    # 9:00 AM is used as the default shift start time
-    shift_start = now.replace(
-        hour=9,
-        minute=0,
-        second=0,
-        microsecond=0
-    )
-
-    if now > shift_start:
-        status = "Late"
-        minutes_late = int(
-            (now - shift_start).total_seconds() / 60
-        )
-        remarks = f"{minutes_late} minute(s) late"
-    else:
-        status = "Present"
-        remarks = "On time"
-
-    cursor.execute("""
-        INSERT INTO attendance
-        (
             employee_id,
-            date,
-            clock_in,
-            status,
-            remarks
+            today
+        )).fetchone()
+
+        if existing and existing["clock_out"] is None:
+            return False, "Employee is already clocked in."
+
+        connection.execute("""
+            INSERT INTO attendance
+            (
+                employee_id,
+                work_date,
+                clock_in,
+                status
+            )
+            VALUES (?, ?, ?, 'Present')
+        """, (
+            employee_id,
+            today,
+            now
+        ))
+
+    return True, f"Clocked in at {now}."
+
+
+def clock_out(employee_id):
+    today = date.today().isoformat()
+    now = datetime.now().strftime("%H:%M:%S")
+
+    with get_connection() as connection:
+        row = connection.execute("""
+            SELECT id, clock_in
+            FROM attendance
+            WHERE employee_id=?
+              AND work_date=?
+              AND clock_out IS NULL
+            ORDER BY id DESC
+            LIMIT 1
+        """, (
+            employee_id,
+            today
+        )).fetchone()
+
+        if not row:
+            return False, "Employee is not currently clocked in."
+
+        start = datetime.strptime(
+            row["clock_in"],
+            "%H:%M:%S"
         )
-        VALUES (?, ?, ?, ?, ?)
-    """, (
-        employee_id,
-        today,
-        current_time,
-        status,
-        remarks
-    ))
 
-    connection.commit()
-    connection.close()
+        end = datetime.strptime(
+            now,
+            "%H:%M:%S"
+        )
 
-    return True, f"{employee['name']} clocked in successfully."
+        hours = max(
+            0,
+            (end - start).total_seconds() / 3600
+        )
 
+        connection.execute("""
+            UPDATE attendance
+            SET
+                clock_out=?,
+                total_hours=?
+            WHERE id=?
+        """, (
+            now,
+            round(hours, 2),
+            row["id"]
+        ))
 
-def clock_employee_out(employee_id):
-    employee = get_employee(employee_id)
-
-    if not employee:
-        return False, "Employee not found.", 0
-
-    record = get_active_attendance(employee_id)
-
-    if not record:
-        return False, f"{employee['name']} is not clocked in.", 0
-
-    now = datetime.now()
-
-    clock_in_datetime = datetime.strptime(
-        f"{record['date']} {record['clock_in']}",
-        "%Y-%m-%d %H:%M:%S"
-    )
-
-    difference = now - clock_in_datetime
-
-    total_hours = difference.total_seconds() / 3600
-
-    overtime_hours = max(
-        0,
-        total_hours - 8
-    )
-
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    cursor.execute("""
-        UPDATE attendance
-        SET clock_out = ?,
-            total_hours = ?,
-            overtime_hours = ?
-        WHERE id = ?
-    """, (
-        now.strftime("%H:%M:%S"),
-        round(total_hours, 2),
-        round(overtime_hours, 2),
-        record["id"]
-    ))
-
-    connection.commit()
-    connection.close()
-
-    return (
-        True,
-        f"{employee['name']} clocked out successfully.",
-        round(total_hours, 2)
-    )
+    return True, f"Clocked out at {now}. Total hours: {hours:.2f}"
 
 
-def get_attendance(search="", selected_date="", status="All"):
-    connection = connect_db()
-    cursor = connection.cursor()
-
+def get_attendance(
+    search="",
+    start_date="",
+    end_date=""
+):
     query = """
         SELECT
-            attendance.id,
-            attendance.employee_id,
-            employees.name,
-            employees.department,
-            employees.position,
-            attendance.date,
-            attendance.clock_in,
-            attendance.clock_out,
-            attendance.total_hours,
-            attendance.overtime_hours,
-            attendance.status,
-            attendance.remarks
-        FROM attendance
-        JOIN employees
-        ON attendance.employee_id = employees.employee_id
-        WHERE 1 = 1
+            a.id,
+            a.employee_id,
+            e.full_name,
+            e.department,
+            e.position,
+            a.work_date,
+            a.clock_in,
+            a.clock_out,
+            a.total_hours,
+            a.status,
+            a.notes
+        FROM attendance a
+        JOIN employees e
+            ON e.employee_id = a.employee_id
+        WHERE 1=1
     """
 
-    parameters = []
+    params = []
 
-    if search:
+    if search.strip():
+        value = f"%{search.strip()}%"
+
         query += """
             AND (
-                attendance.employee_id LIKE ?
-                OR employees.name LIKE ?
-                OR employees.department LIKE ?
+                a.employee_id LIKE ?
+                OR e.full_name LIKE ?
+                OR e.department LIKE ?
             )
         """
 
-        search_value = f"%{search}%"
-
-        parameters.extend([
-            search_value,
-            search_value,
-            search_value
+        params.extend([
+            value,
+            value,
+            value
         ])
 
-    if selected_date:
-        query += " AND attendance.date = ?"
-        parameters.append(selected_date)
+    if start_date:
+        query += " AND a.work_date >= ?"
+        params.append(start_date)
 
-    if status != "All":
-        query += " AND attendance.status = ?"
-        parameters.append(status)
+    if end_date:
+        query += " AND a.work_date <= ?"
+        params.append(end_date)
 
-    query += " ORDER BY attendance.id DESC"
+    query += """
+        ORDER BY
+            a.work_date DESC,
+            a.clock_in DESC
+    """
 
-    cursor.execute(
-        query,
-        parameters
-    )
-
-    records = cursor.fetchall()
-    connection.close()
-
-    return records
+    with get_connection() as connection:
+        return connection.execute(
+            query,
+            params
+        ).fetchall()
 
 
 def get_today_attendance():
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = date.today().isoformat()
 
     return get_attendance(
-        selected_date=today
+        start_date=today,
+        end_date=today
     )
 
 
-# =========================================================
-# DASHBOARD STATISTICS
-# =========================================================
-
 def get_dashboard_stats():
-    connection = connect_db()
-    cursor = connection.cursor()
+    today = date.today().isoformat()
 
-    today = datetime.now().strftime("%Y-%m-%d")
+    with get_connection() as connection:
 
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM employees
-    """)
+        employees = connection.execute("""
+            SELECT COUNT(*) AS total
+            FROM employees
+            WHERE status='Active'
+        """).fetchone()["total"]
 
-    total_employees = cursor.fetchone()[0]
+        present = connection.execute("""
+            SELECT COUNT(*) AS total
+            FROM attendance
+            WHERE work_date=?
+        """, (today,)).fetchone()["total"]
 
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM attendance
-        WHERE date = ?
-          AND clock_out IS NULL
-    """, (today,))
+        working = connection.execute("""
+            SELECT COUNT(*) AS total
+            FROM attendance
+            WHERE work_date=?
+              AND clock_out IS NULL
+        """, (today,)).fetchone()["total"]
 
-    currently_working = cursor.fetchone()[0]
-
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM attendance
-        WHERE date = ?
-    """, (today,))
-
-    today_records = cursor.fetchone()[0]
-
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM attendance
-        WHERE date = ?
-          AND clock_out IS NOT NULL
-    """, (today,))
-
-    completed = cursor.fetchone()[0]
-
-    cursor.execute("""
-        SELECT COALESCE(SUM(total_hours), 0)
-        FROM attendance
-        WHERE date = ?
-    """, (today,))
-
-    total_hours = cursor.fetchone()[0]
-
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM attendance
-        WHERE date = ?
-          AND status = 'Late'
-    """, (today,))
-
-    late_count = cursor.fetchone()[0]
-
-    connection.close()
+        hours = connection.execute("""
+            SELECT COALESCE(SUM(total_hours), 0) AS total
+            FROM attendance
+            WHERE work_date=?
+        """, (today,)).fetchone()["total"]
 
     return {
-        "total_employees": total_employees,
-        "currently_working": currently_working,
-        "today_records": today_records,
-        "completed": completed,
-        "total_hours": total_hours,
-        "late_count": late_count
+        "employees": employees,
+        "present": present,
+        "working": working,
+        "hours": round(hours, 2)
     }
 
 
-# =========================================================
-# REPORT FUNCTIONS
-# =========================================================
+def get_report_summary(start_date, end_date):
+    with get_connection() as connection:
 
-def get_employee_summary(employee_id):
-    connection = connect_db()
-    cursor = connection.cursor()
+        summary = connection.execute("""
+            SELECT
+                COUNT(*) AS total_records,
+                COUNT(DISTINCT employee_id) AS unique_employees,
+                COALESCE(SUM(total_hours), 0) AS total_hours,
+                COALESCE(AVG(total_hours), 0) AS average_hours
+            FROM attendance
+            WHERE work_date BETWEEN ? AND ?
+        """, (
+            start_date,
+            end_date
+        )).fetchone()
 
-    cursor.execute("""
-        SELECT
-            COUNT(*) AS total_days,
-            COALESCE(SUM(total_hours), 0) AS total_hours,
-            COALESCE(SUM(overtime_hours), 0) AS overtime_hours,
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN status = 'Late'
-                        THEN 1
-                        ELSE 0
-                    END
-                ),
-                0
-            ) AS late_count
-        FROM attendance
-        WHERE employee_id = ?
-    """, (employee_id,))
+        departments = connection.execute("""
+            SELECT
+                e.department,
+                COUNT(a.id) AS attendance_count,
+                COALESCE(SUM(a.total_hours), 0) AS total_hours
+            FROM attendance a
+            JOIN employees e
+                ON e.employee_id = a.employee_id
+            WHERE a.work_date BETWEEN ? AND ?
+            GROUP BY e.department
+            ORDER BY attendance_count DESC
+        """, (
+            start_date,
+            end_date
+        )).fetchall()
 
-    result = cursor.fetchone()
-    connection.close()
-
-    return result
-
-
-def get_monthly_summary(year, month):
-    connection = connect_db()
-    cursor = connection.cursor()
-
-    month_text = f"{year}-{month:02d}"
-
-    cursor.execute("""
-        SELECT
-            COUNT(*) AS total_records,
-            COALESCE(SUM(total_hours), 0) AS total_hours,
-            COALESCE(SUM(overtime_hours), 0) AS overtime_hours
-        FROM attendance
-        WHERE date LIKE ?
-    """, (f"{month_text}-%",))
-
-    result = cursor.fetchone()
-    connection.close()
-
-    return result
+    return summary, departments
