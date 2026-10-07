@@ -1,276 +1,554 @@
 import customtkinter as ctk
 from tkinter import messagebox
-
+from datetime import datetime
 import database
 
 
-class AttendancePage(ctk.CTkFrame):
+def show_attendance(parent):
+    attendance_frame = ctk.CTkFrame(
+        parent,
+        fg_color="#f5f5f5",
+        corner_radius=0
+    )
+    attendance_frame.pack(
+        fill="both",
+        expand=True
+    )
 
-    def __init__(self, parent):
-        super().__init__(
-            parent,
-            fg_color="transparent"
+    # Header
+    header_frame = ctk.CTkFrame(
+        attendance_frame,
+        fg_color="transparent"
+    )
+    header_frame.pack(
+        fill="x",
+        padx=30,
+        pady=(25, 15)
+    )
+
+    title = ctk.CTkLabel(
+        header_frame,
+        text="Attendance",
+        font=ctk.CTkFont(
+            size=30,
+            weight="bold"
+        ),
+        text_color="#222222"
+    )
+    title.pack(side="left")
+
+    date_label = ctk.CTkLabel(
+        header_frame,
+        text=datetime.now().strftime("%B %d, %Y"),
+        font=ctk.CTkFont(size=15),
+        text_color="#666666"
+    )
+    date_label.pack(
+        side="right",
+        pady=8
+    )
+
+    # Clock in / Clock out section
+    action_frame = ctk.CTkFrame(
+        attendance_frame,
+        fg_color="white",
+        corner_radius=12
+    )
+    action_frame.pack(
+        fill="x",
+        padx=30,
+        pady=(5, 15)
+    )
+
+    action_title = ctk.CTkLabel(
+        action_frame,
+        text="Employee Time Tracking",
+        font=ctk.CTkFont(
+            size=20,
+            weight="bold"
+        ),
+        text_color="#222222"
+    )
+    action_title.pack(
+        anchor="w",
+        padx=25,
+        pady=(20, 15)
+    )
+
+    employee_frame = ctk.CTkFrame(
+        action_frame,
+        fg_color="transparent"
+    )
+    employee_frame.pack(
+        fill="x",
+        padx=25,
+        pady=(0, 20)
+    )
+
+    employee_list = get_employees()
+
+    employee_names = []
+
+    for employee in employee_list:
+        employee_names.append(
+            f"{employee[0]} - {employee[1]}"
         )
 
-        self.create_header()
-        self.create_filters()
-        self.create_table()
-
-        self.refresh_attendance()
-
-    def create_header(self):
-        header = ctk.CTkFrame(
-            self,
-            fg_color="transparent"
+    if employee_names:
+        employee_dropdown = ctk.CTkComboBox(
+            employee_frame,
+            values=employee_names,
+            width=350,
+            height=40
         )
-        header.pack(
-            fill="x",
-            padx=25,
-            pady=(20, 10)
+        employee_dropdown.set(
+            "Select Employee"
+        )
+    else:
+        employee_dropdown = ctk.CTkComboBox(
+            employee_frame,
+            values=["No employees available"],
+            width=350,
+            height=40
+        )
+        employee_dropdown.set(
+            "No employees available"
         )
 
-        title = ctk.CTkLabel(
-            header,
-            text="Attendance",
-            font=ctk.CTkFont(
-                size=28,
-                weight="bold"
+    employee_dropdown.pack(
+        side="left",
+        padx=(0, 10)
+    )
+
+    clock_in_button = ctk.CTkButton(
+        employee_frame,
+        text="Clock In",
+        width=120,
+        height=40,
+        command=lambda: clock_in(
+            employee_dropdown,
+            parent
+        )
+    )
+    clock_in_button.pack(
+        side="left",
+        padx=5
+    )
+
+    clock_out_button = ctk.CTkButton(
+        employee_frame,
+        text="Clock Out",
+        width=120,
+        height=40,
+        fg_color="#555555",
+        hover_color="#444444",
+        command=lambda: clock_out(
+            employee_dropdown,
+            parent
+        )
+    )
+    clock_out_button.pack(
+        side="left",
+        padx=5
+    )
+
+    # Today's attendance
+    records_frame = ctk.CTkFrame(
+        attendance_frame,
+        fg_color="white",
+        corner_radius=12
+    )
+    records_frame.pack(
+        fill="both",
+        expand=True,
+        padx=30,
+        pady=(0, 25)
+    )
+
+    records_title = ctk.CTkLabel(
+        records_frame,
+        text="Today's Attendance",
+        font=ctk.CTkFont(
+            size=20,
+            weight="bold"
+        ),
+        text_color="#222222"
+    )
+    records_title.pack(
+        anchor="w",
+        padx=20,
+        pady=(20, 10)
+    )
+
+    table_frame = ctk.CTkScrollableFrame(
+        records_frame,
+        fg_color="white"
+    )
+    table_frame.pack(
+        fill="both",
+        expand=True,
+        padx=10,
+        pady=(0, 10)
+    )
+
+    load_today_attendance(table_frame)
+
+
+def get_employees():
+    try:
+        connection = database.get_connection()
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT id, name
+            FROM employees
+            ORDER BY name
+            """
+        )
+
+        employees = cursor.fetchall()
+
+        connection.close()
+
+        return employees
+
+    except Exception:
+        return []
+
+
+def get_employee_id(employee_dropdown):
+    selected = employee_dropdown.get()
+
+    if not selected or selected in [
+        "Select Employee",
+        "No employees available"
+    ]:
+        return None
+
+    try:
+        employee_id = selected.split(" - ")[0]
+        return int(employee_id)
+
+    except ValueError:
+        return None
+
+
+def clock_in(employee_dropdown, parent):
+    employee_id = get_employee_id(
+        employee_dropdown
+    )
+
+    if employee_id is None:
+        messagebox.showwarning(
+            "Select Employee",
+            "Please select an employee first."
+        )
+        return
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    current_time = datetime.now().strftime("%H:%M:%S")
+
+    try:
+        connection = database.get_connection()
+        cursor = connection.cursor()
+
+        # Check if employee already clocked in today
+        cursor.execute(
+            """
+            SELECT id
+            FROM attendance
+            WHERE employee_id = ?
+            AND date = ?
+            """,
+            (
+                employee_id,
+                today
             )
         )
-        title.pack(anchor="w")
 
-        subtitle = ctk.CTkLabel(
-            header,
-            text="View and manage employee attendance records.",
-            font=ctk.CTkFont(size=14),
-            text_color="gray"
-        )
-        subtitle.pack(anchor="w", pady=(3, 0))
+        existing_record = cursor.fetchone()
 
-    def create_filters(self):
-        filter_frame = ctk.CTkFrame(
-            self,
-            corner_radius=12
-        )
-        filter_frame.pack(
-            fill="x",
-            padx=25,
-            pady=10
-        )
+        if existing_record:
+            connection.close()
 
-        self.search_entry = ctk.CTkEntry(
-            filter_frame,
-            placeholder_text="Search employee...",
-            width=220,
-            height=38
-        )
-        self.search_entry.pack(
-            side="left",
-            padx=(15, 8),
-            pady=15
-        )
+            messagebox.showwarning(
+                "Already Clocked In",
+                "This employee already has an attendance record today."
+            )
+            return
 
-        self.start_date_entry = ctk.CTkEntry(
-            filter_frame,
-            placeholder_text="Start Date YYYY-MM-DD",
-            width=160,
-            height=38
-        )
-        self.start_date_entry.pack(
-            side="left",
-            padx=8,
-            pady=15
+        # Determine attendance status
+        current_hour = datetime.now().hour
+        current_minute = datetime.now().minute
+
+        if current_hour > 8 or (
+            current_hour == 8 and current_minute > 0
+        ):
+            status = "Late"
+        else:
+            status = "Present"
+
+        cursor.execute(
+            """
+            INSERT INTO attendance
+            (employee_id, date, time_in, time_out, status)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                employee_id,
+                today,
+                current_time,
+                None,
+                status
+            )
         )
 
-        self.end_date_entry = ctk.CTkEntry(
-            filter_frame,
-            placeholder_text="End Date YYYY-MM-DD",
-            width=160,
-            height=38
-        )
-        self.end_date_entry.pack(
-            side="left",
-            padx=8,
-            pady=15
+        connection.commit()
+        connection.close()
+
+        messagebox.showinfo(
+            "Clock In Successful",
+            "Employee successfully clocked in."
         )
 
-        search_button = ctk.CTkButton(
-            filter_frame,
-            text="Search",
-            width=90,
-            height=38,
-            command=self.refresh_attendance
-        )
-        search_button.pack(
-            side="left",
-            padx=8,
-            pady=15
+        show_attendance(parent)
+
+    except Exception as error:
+        messagebox.showerror(
+            "Database Error",
+            str(error)
         )
 
-        clear_button = ctk.CTkButton(
-            filter_frame,
-            text="Clear",
-            width=80,
-            height=38,
-            fg_color="gray",
-            hover_color="#555555",
-            command=self.clear_filters
+
+def clock_out(employee_dropdown, parent):
+    employee_id = get_employee_id(
+        employee_dropdown
+    )
+
+    if employee_id is None:
+        messagebox.showwarning(
+            "Select Employee",
+            "Please select an employee first."
         )
-        clear_button.pack(
-            side="left",
-            padx=8,
-            pady=15
+        return
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    current_time = datetime.now().strftime("%H:%M:%S")
+
+    try:
+        connection = database.get_connection()
+        cursor = connection.cursor()
+
+        # Find today's attendance record
+        cursor.execute(
+            """
+            SELECT id, time_out
+            FROM attendance
+            WHERE employee_id = ?
+            AND date = ?
+            """,
+            (
+                employee_id,
+                today
+            )
         )
 
-    def create_table(self):
-        table_frame = ctk.CTkFrame(
-            self,
-            corner_radius=12
-        )
-        table_frame.pack(
-            fill="both",
-            expand=True,
-            padx=25,
-            pady=(5, 25)
+        record = cursor.fetchone()
+
+        if not record:
+            connection.close()
+
+            messagebox.showwarning(
+                "No Clock In",
+                "This employee has not clocked in today."
+            )
+            return
+
+        if record[1]:
+            connection.close()
+
+            messagebox.showwarning(
+                "Already Clocked Out",
+                "This employee has already clocked out today."
+            )
+            return
+
+        cursor.execute(
+            """
+            UPDATE attendance
+            SET time_out = ?
+            WHERE id = ?
+            """,
+            (
+                current_time,
+                record[0]
+            )
         )
 
-        self.table = ctk.CTkScrollableFrame(
-            table_frame,
-            fg_color="transparent"
-        )
-        self.table.pack(
-            fill="both",
-            expand=True,
-            padx=10,
-            pady=10
+        connection.commit()
+        connection.close()
+
+        messagebox.showinfo(
+            "Clock Out Successful",
+            "Employee successfully clocked out."
         )
 
-        self.create_table_headers()
+        show_attendance(parent)
 
-    def create_table_headers(self):
+    except Exception as error:
+        messagebox.showerror(
+            "Database Error",
+            str(error)
+        )
+
+
+def load_today_attendance(parent):
+    # Clear existing widgets
+    for widget in parent.winfo_children():
+        widget.destroy()
+
+    try:
+        connection = database.get_connection()
+        cursor = connection.cursor()
+
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        cursor.execute(
+            """
+            SELECT
+                attendance.id,
+                employees.name,
+                attendance.date,
+                attendance.time_in,
+                attendance.time_out,
+                attendance.status
+            FROM attendance
+            JOIN employees
+            ON attendance.employee_id = employees.id
+            WHERE attendance.date = ?
+            ORDER BY attendance.id DESC
+            """,
+            (today,)
+        )
+
+        records = cursor.fetchall()
+
+        connection.close()
+
         headers = [
-            "Employee ID",
-            "Employee Name",
-            "Department",
+            "ID",
+            "Employee",
             "Date",
-            "Clock In",
-            "Clock Out",
-            "Hours",
+            "Time In",
+            "Time Out",
             "Status"
         ]
 
-        widths = [
-            120,
-            180,
-            130,
-            110,
-            100,
-            100,
-            80,
-            100
-        ]
-
-        for column, (header, width) in enumerate(
-            zip(headers, widths)
-        ):
+        for column, header in enumerate(headers):
             label = ctk.CTkLabel(
-                self.table,
+                parent,
                 text=header,
-                width=width,
                 font=ctk.CTkFont(
                     size=13,
                     weight="bold"
                 ),
-                anchor="w"
+                text_color="#555555"
             )
 
             label.grid(
                 row=0,
                 column=column,
-                padx=5,
-                pady=(5, 10),
+                padx=10,
+                pady=12,
                 sticky="w"
             )
 
-    def refresh_attendance(self):
-        search = self.search_entry.get()
-        start_date = self.start_date_entry.get()
-        end_date = self.end_date_entry.get()
+            parent.grid_columnconfigure(
+                column,
+                weight=1
+            )
 
-        records = database.get_attendance(
-            search=search,
-            start_date=start_date,
-            end_date=end_date
-        )
+        for row, record in enumerate(
+            records,
+            start=1
+        ):
+            create_cell(
+                parent,
+                record[0],
+                row,
+                0
+            )
 
-        self.display_records(records)
+            create_cell(
+                parent,
+                record[1],
+                row,
+                1
+            )
 
-    def display_records(self, records):
-        for widget in self.table.winfo_children():
-            if widget.grid_info().get("row", 0) != 0:
-                widget.destroy()
+            create_cell(
+                parent,
+                record[2],
+                row,
+                2
+            )
+
+            create_cell(
+                parent,
+                record[3] or "-",
+                row,
+                3
+            )
+
+            create_cell(
+                parent,
+                record[4] or "-",
+                row,
+                4
+            )
+
+            create_cell(
+                parent,
+                record[5],
+                row,
+                5
+            )
 
         if not records:
             empty_label = ctk.CTkLabel(
-                self.table,
-                text="No attendance records found.",
-                text_color="gray",
-                font=ctk.CTkFont(size=14)
+                parent,
+                text="No attendance records for today.",
+                font=ctk.CTkFont(size=15),
+                text_color="#777777"
             )
 
             empty_label.grid(
                 row=1,
                 column=0,
-                columnspan=8,
+                columnspan=6,
                 pady=40
             )
 
-            return
+    except Exception as error:
+        messagebox.showerror(
+            "Database Error",
+            str(error)
+        )
 
-        for row_number, record in enumerate(
-            records,
-            start=1
-        ):
-            values = [
-                record["employee_id"],
-                record["full_name"],
-                record["department"],
-                record["work_date"],
-                record["clock_in"],
-                record["clock_out"] or "-",
-                f'{record["total_hours"]:.2f}',
-                record["status"]
-            ]
 
-            for column, value in enumerate(values):
+def create_cell(parent, text, row, column):
+    label = ctk.CTkLabel(
+        parent,
+        text=str(text) if text else "-",
+        font=ctk.CTkFont(size=13),
+        text_color="#333333"
+    )
 
-                label = ctk.CTkLabel(
-                    self.table,
-                    text=str(value),
-                    width=[
-                        120,
-                        180,
-                        130,
-                        110,
-                        100,
-                        100,
-                        80,
-                        100
-                    ][column],
-                    anchor="w"
-                )
-
-                label.grid(
-                    row=row_number,
-                    column=column,
-                    padx=5,
-                    pady=7,
-                    sticky="w"
-                )
-
-    def clear_filters(self):
-        self.search_entry.delete(0, "end")
-        self.start_date_entry.delete(0, "end")
-        self.end_date_entry.delete(0, "end")
-
-        self.refresh_attendance()
+    label.grid(
+        row=row,
+        column=column,
+        padx=10,
+        pady=8,
+        sticky="w"
+    )
